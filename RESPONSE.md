@@ -197,8 +197,8 @@ brand palette taken from the logo, WCAG-AA contrast, Open Graph tags, lazy loadi
 **Live:** https://youssefkhal.github.io/prg2-website-agent/
 
 > **Transparency.** The site in `demo/site/` is a *reference output*. It was written by hand following exactly the brief, sitemap, skills and
-> file layout the agent uses, because the agent could not be executed in the environment where this repository was prepared (no package
-> registry access, no LLM key, no GPU). For the same reason, its illustrations are hand-made SVGs rather than SDXL images.
+> file layout the agent uses, because no LLM API key or GPU was available while preparing this repository. The agent pipeline itself
+> is verified end to end in CI with a scripted model (see §10). For the same reason, its illustrations are hand-made SVGs rather than SDXL images.
 > The workflow **"Generate demo site with the agent"** runs the real agent headless on the same input and commits the result to
 > `demo/agent-run/`, published at `/agent-run/`. It needs the `ANTHROPIC_API_KEY` repository secret, plus `COLAB_GPU_URL` / `COLAB_GPU_TOKEN` for real images.
 
@@ -225,15 +225,17 @@ npm run demo -- --brief ../demo/brief-prompt.md --images ../demo/inputs --out ..
 
 ## 10. Testing and CI
 
-| Check | How |
-|---|---|
-| Unit tests (6) | frontmatter parsing, skill retrieval relevance (FR/EN), runtime skill registration, conversation scan for loaded skills and enabled tools, palette contrast ≥ 4.5:1, site audit detection |
-| CI (`.github/workflows/ci.yml`) | `npm install` → TypeScript build → unit tests → boots the server with 1,012 skills and calls `/api/health`, `/api/skills`, `/api/tools` and the UI; compiles the Colab server and validates the notebook |
-| Site audit | `audit_website` on `demo/site`: 5 pages, 0 errors, 0 warnings |
-| UI | rendered with Playwright on simulated agent events (streaming, tool cards, sub-agent labels, todos, preview) |
-| End-to-end agent run | `generate-demo.yml` workflow (requires an LLM API key secret) |
+[![CI](https://github.com/Youssefkhal/prg2-website-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Youssefkhal/prg2-website-agent/actions/workflows/ci.yml)
 
----
+| Check | What it proves | Status |
+|---|---|---|
+| **End-to-end agent test** (`test/agent-e2e.test.js`) | The real `createDeepAgent` graph runs with the middleware, sub-agents, filesystem backend and streaming. A scripted chat model replaces the LLM, so no API key is needed. Checked: the image upload is saved; the system prompt contains suggested skills but **not** the catalogue; `generate_image` is **not bound before** `load_skill` and **is bound after**; `generate_image` and `write_file` write real files; `task` → **qa-reviewer** sub-agent → `audit_website` reports 0 errors | ✅ CI |
+| Unit tests | frontmatter parsing, retrieval relevance (FR/EN), runtime skill registration, conversation scan, palette contrast ≥ 4.5:1, audit detection | ✅ CI |
+| Build | `npm install` + strict TypeScript build against the real `deepagents`, `langchain`, `@langchain/*` and NestJS packages | ✅ CI |
+| Server smoke test | NestJS boots with 1,012 skills; `/api/health`, `/api/skills`, `/api/tools` and the UI respond | ✅ CI |
+| Colab server | `gpu_server.py` compiles, notebook is valid JSON | ✅ CI |
+| Demo site audit | `audit_website` on `demo/site`: 5 pages, 0 errors, 0 warnings | ✅ |
+| Run with a real LLM + Colab GPU | `generate-demo.yml` (needs the `ANTHROPIC_API_KEY` secret and the Colab URL/token) | ⏳ needs your keys |
 
 ## 11. Limitations and next steps
 
