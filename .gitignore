@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+backend/workspace/
+backend/.cache/
+backend/skills/generated/
+__pycache__/
+*.log

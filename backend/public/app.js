@@ -1,0 +1,380 @@
+/* Atelier — web interface (vanilla JS, no build step) */
+const $ = (s) => document.querySelector(s);
+const MAIN = "atelier";
+const AGENT_LABEL = { atelier: "Atelier (agent principal)", copywriter: "Sous-agent · rédacteur", "image-designer": "Sous-agent · directeur artistique (GPU)", "web-developer": "Sous-agent · développeur web", "qa-reviewer": "Sous-agent · QA", "general-purpose": "Sous-agent · généraliste", "sub-agent": "Sous-agent" };
+
+/* ---------------------------------------------------------------- projects */
+const projects = JSON.parse(localStorage.getItem("atelier.projects") || "[]");
+let threadId = localStorage.getItem("atelier.current");
+function newProject() {
+  threadId = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  projects.unshift({ id: threadId, title: "Nouveau projet", at: Date.now() });
+  saveProjects();
+}
+function saveProjects() {
+  localStorage.setItem("atelier.projects", JSON.stringify(projects.slice(0, 50)));
+  localStorage.setItem("atelier.current", threadId);
+  const sel = $("#project-select");
+  sel.innerHTML = projects.map((p) => `<option value="${p.id}">${esc(p.title)}</option>`).join("");
+  sel.value = threadId;
+}
+if (!threadId || !projects.find((p) => p.id === threadId)) newProject();
+saveProjects();
+
+/* ----------------------------------------------------------------- helpers */
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+function md(src) {
+  const blocks = String(src).split(/```/);
+  return blocks
+    .map((b, i) => {
+      if (i % 2) return `<pre><code>${esc(b.replace(/^\w*\n/, ""))}</code></pre>`;
+      let h = esc(b)
+        .replace(/^### (.*)$/gm, "<h3>$1</h3>")
+        .replace(/^## (.*)$/gm, "<h2>$1</h2>")
+        .replace(/^# (.*)$/gm, "<h1>$1</h1>")
+        .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/^\s*[-*] (.*)$/gm, "<li>$1</li>");
+      h = h.replace(/(<li>.*<\/li>\n?)+/g, (m) => `\n\n<ul>${m.replace(/\n/g, "")}</ul>\n\n`);
+      return h
+        .split(/\n{2,}/)
+        .filter((p) => p.trim())
+        .map((p) => (/^<(h\d|ul|pre)/.test(p.trim()) ? p : `<p>${p.trim().replace(/\n/g, "<br>")}</p>`))
+        .join("");
+    })
+    .join("");
+}
+const isSub = (agent) => agent !== MAIN;
+const projectUrl = (p) => `/projects/${threadId}${p}`;
+
+/* --------------------------------------------------------------- rendering */
+const box = $("#messages");
+let bubble = null; // { agent, el, text }
+let pendingTools = {}; // agent -> [card]
+let byIndex = {}; // `${agent}:${index}` -> card
+
+function scroll() {
+  box.scrollTop = box.scrollHeight;
+}
+function addUser(text, images) {
+  box.querySelector(".welcome")?.remove();
+  const el = document.createElement("div");
+  el.className = "msg user";
+  el.textContent = text;
+  if (images?.length) {
+    const wrap = document.createElement("div");
+    for (const img of images) wrap.insertAdjacentHTML("beforeend", `<img src="${img.dataUrl}" alt="">`);
+    el.appendChild(wrap);
+  }
+  box.appendChild(el);
+  scroll();
+}
+function addAssistant(agent, text = "") {
+  const el = document.createElement("div");
+  el.className = "msg assistant" + (isSub(agent) ? " sub" : "");
+  el.innerHTML = `<div class="who">${esc(AGENT_LABEL[agent] || "Sous-agent · " + agent)}</div><div class="body"></div>`;
+  box.appendChild(el);
+  bubble = { agent, el, text };
+  if (text) el.querySelector(".body").innerHTML = md(text);
+  return bubble;
+}
+function onToken(agent, text) {
+  if (!bubble || bubble.agent !== agent || bubble.el !== box.lastElementChild) addAssistant(agent);
+  bubble.text += text;
+  bubble.el.querySelector(".body").innerHTML = md(bubble.text);
+  bubble.el.classList.add("typing");
+  scroll();
+}
+function onToolCall(e) {
+  const card = document.createElement("details");
+  card.className = "tool" + (isSub(e.agent) ? " sub" : "");
+  card.innerHTML = `<summary><b>${esc(e.name)}</b> <span class="meta">${isSub(e.agent) ? "· " + esc(e.agent) : ""}</span></summary><pre class="args"></pre>`;
+  card._args = "";
+  card._name = e.name;
+  box.appendChild(card);
+  (pendingTools[e.agent] ||= []).push(card);
+  byIndex[`${e.agent}:${e.index}`] = card;
+  bubble?.el.classList.remove("typing");
+  scroll();
+}
+function onToolArgs(e) {
+  const card = byIndex[`${e.agent}:${e.index}`];
+  if (!card) return;
+  card._args += e.delta;
+  card.querySelector(".args").textContent = card._args.slice(0, 3000);
+}
+function onToolResult(e) {
+  const list = pendingTools[e.agent] || [];
+  const i = list.findIndex((c) => c._name === e.name);
+  const card = i >= 0 ? list.splice(i, 1)[0] : null;
+  let args = {};
+  try {
+    args = card ? JSON.parse(card._args || "{}") : {};
+  } catch {}
+  if (card) {
+    card.classList.add("done");
+    card.insertAdjacentHTML("beforeend", `<pre>${esc(e.content)}</pre>`);
+    const summary = card.querySelector(".meta");
+    if (e.name === "task" && args.subagent_type) summary.textContent = `→ ${args.subagent_type}`;
+    if (e.name === "load_skill" && args.name) summary.textContent = `→ ${args.name}`;
+    if (["write_file", "edit_file", "read_file"].includes(e.name) && (args.file_path || args.path)) summary.textContent += ` ${args.file_path || args.path}`;
+    if (e.name === "generate_image") {
+      const m = /Saved to (\S+?\.png)|wrote a placeholder .*? to (\S+?\.svg)/.exec(e.content);
+      const p = m && (m[1] || m[2]);
+      if (p) card.insertAdjacentHTML("beforeend", `<img class="gen" src="${projectUrl(p)}?t=${Date.now()}" alt="">`);
+      card.open = true;
+    }
+  }
+  if (e.name === "write_todos" && Array.isArray(args.todos)) renderTodos(args.todos);
+  if (e.name === "task") activity(`<b>${esc(args.subagent_type || "sous-agent")}</b> a terminé : ${esc((args.description || "").slice(0, 120))}`);
+  if (["write_file", "edit_file", "generate_image", "task", "delete"].includes(e.name)) refreshSoon();
+  scroll();
+}
+function renderTodos(todos) {
+  $("#todos").innerHTML = todos.map((t) => `<li class="${esc(t.status)}">${esc(t.content)}</li>`).join("") || `<li class="empty">—</li>`;
+}
+function activity(html) {
+  $("#agents-activity").insertAdjacentHTML("afterbegin", `<li>${new Date().toLocaleTimeString()} — ${html}</li>`);
+}
+
+/* -------------------------------------------------------------- composer */
+let attachments = [];
+async function addFiles(files) {
+  for (const f of files) {
+    if (!f.type.startsWith("image/")) continue;
+    attachments.push({ name: f.name.replace(/\.[^.]+$/, "") || "image", dataUrl: await downscale(f) });
+  }
+  renderAttachments();
+}
+function downscale(file, max = 1568) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = reject;
+    r.onload = () => {
+      if (file.type === "image/svg+xml" || file.type === "image/gif") return resolve(r.result);
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.width, img.height));
+        if (k === 1 && file.size < 3e6) return resolve(r.result);
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.width * k);
+        c.height = Math.round(img.height * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        resolve(file.type === "image/png" ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.88));
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+function renderAttachments() {
+  $("#attachments").innerHTML = attachments.map((a, i) => `<div class="thumb"><img src="${a.dataUrl}" alt="${esc(a.name)}"><button type="button" data-i="${i}">×</button></div>`).join("");
+}
+$("#attachments").addEventListener("click", (e) => {
+  if (e.target.dataset.i) {
+    attachments.splice(+e.target.dataset.i, 1);
+    renderAttachments();
+  }
+});
+$("#file-input").addEventListener("change", (e) => addFiles(e.target.files));
+$("#input").addEventListener("paste", (e) => addFiles([...e.clipboardData.files]));
+const composer = $("#composer");
+composer.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  composer.classList.add("drag");
+});
+composer.addEventListener("dragleave", () => composer.classList.remove("drag"));
+composer.addEventListener("drop", (e) => {
+  e.preventDefault();
+  composer.classList.remove("drag");
+  addFiles(e.dataTransfer.files);
+});
+$("#input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) composer.requestSubmit();
+});
+document.querySelectorAll(".example").forEach((b) => b.addEventListener("click", () => ($("#input").value = b.dataset.text)));
+
+composer.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = $("#input").value.trim();
+  if (!text && !attachments.length) return;
+  const images = attachments;
+  attachments = [];
+  renderAttachments();
+  $("#input").value = "";
+  addUser(text, images);
+  const p = projects.find((x) => x.id === threadId);
+  if (p && p.title === "Nouveau projet" && text) {
+    p.title = text.slice(0, 40);
+    saveProjects();
+  }
+  $("#send").disabled = true;
+  bubble = null;
+  pendingTools = {};
+  byIndex = {};
+  try {
+    const res = await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ threadId, message: text, images }) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let k;
+      while ((k = buf.indexOf("\n\n")) >= 0) {
+        const chunk = buf.slice(0, k);
+        buf = buf.slice(k + 2);
+        for (const line of chunk.split("\n")) if (line.startsWith("data: ")) handle(JSON.parse(line.slice(6)));
+      }
+    }
+  } catch (err) {
+    const el = addAssistant(MAIN, "").el;
+    el.classList.add("error");
+    el.querySelector(".body").textContent = String(err.message || err);
+  } finally {
+    $("#send").disabled = false;
+    document.querySelectorAll(".typing").forEach((x) => x.classList.remove("typing"));
+    refresh();
+  }
+});
+
+function handle(e) {
+  switch (e.type) {
+    case "token": return onToken(e.agent, e.text);
+    case "tool_call": return onToolCall(e);
+    case "tool_args": return onToolArgs(e);
+    case "tool_result": return onToolResult(e);
+    case "uploads": return activity(`images enregistrées : ${e.files.map(esc).join(", ")}`);
+    case "error": {
+      const el = addAssistant(MAIN).el;
+      el.classList.add("error");
+      el.querySelector(".body").textContent = "Erreur : " + e.message;
+      return;
+    }
+  }
+}
+
+/* ------------------------------------------------------- preview / files */
+let refreshTimer;
+function refreshSoon() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(refresh, 600);
+}
+async function refresh() {
+  const files = await (await fetch(`/api/projects/${threadId}/files`)).json();
+  $("#file-list").innerHTML = files.map((f) => `<li data-p="${esc(f.path)}">${esc(f.path)} <span>${(f.size / 1024).toFixed(1)} ko</span></li>`).join("") || `<li class="empty">Aucun fichier</li>`;
+  const pages = files.filter((f) => f.path.startsWith("/site/") && f.path.endsWith(".html")).map((f) => f.path);
+  const sel = $("#page-select");
+  const prev = sel.value;
+  sel.innerHTML = pages.map((p) => `<option>${esc(p)}</option>`).join("");
+  const has = pages.length > 0;
+  $("#preview").style.display = has ? "block" : "none";
+  $("#preview-empty").style.display = has ? "none" : "block";
+  if (has) {
+    sel.value = pages.includes(prev) ? prev : pages.includes("/site/index.html") ? "/site/index.html" : pages[0];
+    loadPreview();
+  }
+}
+function loadPreview() {
+  const url = projectUrl($("#page-select").value);
+  $("#preview").src = url + "?t=" + Date.now();
+  $("#open-new").href = url;
+}
+$("#page-select").addEventListener("change", loadPreview);
+$("#refresh").addEventListener("click", refresh);
+$("#file-list").addEventListener("click", async (e) => {
+  const p = e.target.closest("li")?.dataset.p;
+  if (!p) return;
+  const view = $("#file-view");
+  if (/\.(png|jpe?g|webp|gif|svg)$/i.test(p)) {
+    view.innerHTML = `<img src="${projectUrl(p)}" alt="">`;
+    return;
+  }
+  const r = await (await fetch(`/api/projects/${threadId}/file?path=${encodeURIComponent(p)}`)).json();
+  view.textContent = r.content;
+});
+document.querySelectorAll(".tabs button").forEach((b) =>
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".tabs button, .tab").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    $("#tab-" + b.dataset.tab).classList.add("active");
+  }),
+);
+
+/* ---------------------------------------------------------- skills / tools */
+$("#skill-search").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const r = await (await fetch(`/api/skills?q=${encodeURIComponent($("#skill-q").value)}&k=12`)).json();
+  $("#skill-results").innerHTML = r.items.map((s) => `<li><b>${esc(s.name)}</b> ${s.score != null ? `<span class="pill">${s.score}</span>` : ""}<small>${esc(s.description)}</small>${s.tools.length ? `<small>outils : ${esc(s.tools.join(", "))}</small>` : ""}</li>`).join("") || "<li>Aucun résultat</li>";
+});
+$("#skill-register").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const list = (k) => String(f.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const res = await fetch("/api/skills", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: f.get("name"), description: f.get("description"), body: f.get("body"), tags: list("tags"), tools: list("tools") }) });
+  const j = await res.json();
+  alert(res.ok ? `Skill « ${j.registered.name} » enregistré (${j.total} skills).` : j.message);
+  if (res.ok) e.target.reset(), health();
+});
+async function loadTools() {
+  const tools = await (await fetch("/api/tools")).json();
+  $("#tool-list").innerHTML = tools.map((t) => `<li><b>${esc(t.name)}</b> <span class="pill">${t.source}</span><small>${esc(t.description)}</small></li>`).join("");
+}
+$("#tool-register").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  let manifest;
+  try {
+    manifest = JSON.parse(new FormData(e.target).get("manifest"));
+  } catch {
+    return alert("JSON invalide");
+  }
+  const res = await fetch("/api/tools", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(manifest) });
+  const j = await res.json();
+  alert(res.ok ? `Outil « ${j.registered.name} » enregistré.` : j.message);
+  if (res.ok) loadTools();
+});
+
+/* ------------------------------------------------------------------ status */
+async function health() {
+  try {
+    const h = await (await fetch("/api/health")).json();
+    const g = $("#gpu-pill");
+    g.textContent = h.gpu.ok ? `GPU Colab : ${h.gpu.gpu || h.gpu.device}` : "GPU Colab : hors ligne (images de remplacement)";
+    g.className = "pill " + (h.gpu.ok ? "ok" : "bad");
+    g.title = JSON.stringify(h.gpu);
+    $("#model-pill").textContent = h.model;
+    $("#skills-pill").textContent = `${h.skills.count} skills · ${h.skills.semanticIndex ? "index sémantique GPU" : "BM25"}`;
+  } catch {
+    $("#gpu-pill").textContent = "backend injoignable";
+  }
+}
+async function loadHistory() {
+  box.innerHTML = "";
+  bubble = null;
+  try {
+    const hist = await (await fetch(`/api/projects/${threadId}/history`)).json();
+    for (const m of hist) m.role === "user" ? addUser(m.text) : addAssistant(MAIN, m.text);
+    if (!hist.length) box.innerHTML = `<div class="welcome"><h2>Nouveau projet</h2><p>Décrivez l'entreprise et joignez logo / photos.</p></div>`;
+  } catch {}
+  $("#todos").innerHTML = `<li class="empty">Aucun plan pour l'instant.</li>`;
+  refresh();
+}
+$("#new-project").addEventListener("click", () => {
+  newProject();
+  loadHistory();
+});
+$("#project-select").addEventListener("change", (e) => {
+  threadId = e.target.value;
+  saveProjects();
+  loadHistory();
+});
+
+health();
+loadTools();
+setInterval(health, 30000);
+if (projects.find((p) => p.id === threadId)?.title !== "Nouveau projet") loadHistory();
+else refresh();

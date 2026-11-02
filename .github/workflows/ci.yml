@@ -1,0 +1,40 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: Type-check, build and unit tests
+        run: npm test
+      - name: Server boots and answers (no API key needed for these routes)
+        run: |
+          npm run skills:demo
+          (node dist/main.js > server.log 2>&1 &)
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/api/health && break; sleep 1; done
+          echo
+          curl -sf "http://localhost:3000/api/skills?q=hero%20image%20prompt&k=3"
+          echo
+          curl -sf http://localhost:3000/api/tools
+          echo
+          curl -sf http://localhost:3000/ | grep -q "Atelier"
+          cat server.log
+  colab-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m py_compile colab/gpu_server.py
+      - run: python -c "import json; nb=json.load(open('colab/gpu_server.ipynb')); print(len(nb['cells']), 'cells')"

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="56" viewBox="0 0 220 56">
+  <g transform="translate(4 4)">
+    <circle cx="24" cy="24" r="24" fill="#1f5e45"/>
+    <path d="M14 30c0-11 9-19 22-20-1 13-9 22-20 22-.7 0-1.4 0-2-.1l9-9-1-1-9 9c0-.3 1-.6 1-.9z" fill="#f2a93b"/>
+  </g>
+  <text x="62" y="36" font-family="Georgia, 'Times New Roman', serif" font-size="27" font-weight="700" fill="#13261d" letter-spacing=".5">Verdance</text>
+</svg>

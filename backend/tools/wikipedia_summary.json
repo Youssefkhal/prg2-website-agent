@@ -1,0 +1,15 @@
+{
+  "name": "wikipedia_summary",
+  "description": "Fetch the Wikipedia summary of a topic, company, city or industry (useful to research context for website copy). Returns JSON with 'extract'.",
+  "method": "GET",
+  "url": "https://{lang}.wikipedia.org/api/rest_v1/page/summary/{title}",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "title": { "type": "string", "description": "Page title, e.g. 'Lyon' or 'Renewable_energy'" },
+      "lang": { "type": "string", "description": "Wikipedia language code", "default": "fr" }
+    },
+    "required": ["title"]
+  },
+  "tags": ["research", "facts", "company", "city", "wikipedia"]
+}

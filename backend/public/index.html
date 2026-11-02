@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atelier — agent de création de sites web</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">◆</span> Atelier <small>deep agent multi-agents · multimodal</small></div>
+    <div class="status">
+      <span id="gpu-pill" class="pill">GPU…</span>
+      <span id="model-pill" class="pill muted">modèle…</span>
+      <span id="skills-pill" class="pill muted">skills…</span>
+      <select id="project-select" title="Projets"></select>
+      <button id="new-project" class="ghost">+ Nouveau projet</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="chat">
+      <div id="messages" class="messages">
+        <div class="welcome">
+          <h2>Décrivez l'entreprise, joignez logo et photos.</h2>
+          <p>L'agent planifie, délègue à ses sous-agents (rédacteur, directeur artistique sur GPU Colab T4, développeur web, QA) et construit le site.</p>
+          <button class="example" data-text="Crée le site vitrine de « Boulangerie Lumière », boulangerie artisanale bio à Lyon (pain au levain, viennoiseries, ateliers pour enfants). Ton chaleureux et authentique. Pages : accueil, notre histoire, produits, ateliers, contact, mentions légales. Couleurs : beige et vert sauge.">Exemple : boulangerie artisanale</button>
+          <button class="example" data-text="Create a corporate website for NovaGrid, a B2B start-up that builds AI software to balance electricity grids for utilities. Tone: expert, confident, modern. Pages: home, solutions, about, careers, contact. English and French.">Example: B2B energy tech</button>
+        </div>
+      </div>
+      <form id="composer" class="composer">
+        <div id="attachments" class="attachments"></div>
+        <div class="row">
+          <label class="attach" title="Joindre des images (logo, photos, moodboard)">
+            📎<input id="file-input" type="file" accept="image/*" multiple hidden>
+          </label>
+          <textarea id="input" rows="3" placeholder="Votre brief… (glisser-déposer ou coller des images)"></textarea>
+          <button id="send" type="submit">Envoyer</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="side">
+      <nav class="tabs">
+        <button data-tab="preview" class="active">Aperçu</button>
+        <button data-tab="files">Fichiers</button>
+        <button data-tab="plan">Plan</button>
+        <button data-tab="skills">Skills &amp; outils</button>
+      </nav>
+
+      <div id="tab-preview" class="tab active">
+        <div class="preview-bar">
+          <select id="page-select"></select>
+          <button id="refresh" class="ghost">↻</button>
+          <a id="open-new" target="_blank" class="ghost">Ouvrir ↗</a>
+        </div>
+        <iframe id="preview" title="Aperçu du site"></iframe>
+        <div id="preview-empty" class="empty">Le site apparaîtra ici dès que l'agent aura écrit /site/index.html.</div>
+      </div>
+
+      <div id="tab-files" class="tab">
+        <ul id="file-list" class="file-list"></ul>
+        <pre id="file-view" class="file-view"></pre>
+      </div>
+
+      <div id="tab-plan" class="tab">
+        <ul id="todos" class="todos"><li class="empty">Aucun plan pour l'instant.</li></ul>
+        <h4>Activité des sous-agents</h4>
+        <ul id="agents-activity" class="activity"></ul>
+      </div>
+
+      <div id="tab-skills" class="tab">
+        <form id="skill-search" class="inline-form">
+          <input id="skill-q" placeholder="Rechercher un skill (ex. « images hero », « RGPD »)">
+          <button>Chercher</button>
+        </form>
+        <ul id="skill-results" class="skill-results"></ul>
+        <details>
+          <summary>Enregistrer un nouveau skill (dynamique, sans redémarrage)</summary>
+          <form id="skill-register" class="stack">
+            <input name="name" placeholder="nom-du-skill" required>
+            <input name="description" placeholder="Quand utiliser ce skill (une phrase)" required>
+            <input name="tags" placeholder="tags séparés par des virgules">
+            <input name="tools" placeholder="outils dynamiques requis (ex. generate_image)">
+            <textarea name="body" rows="6" placeholder="Instructions en markdown" required></textarea>
+            <button>Enregistrer</button>
+          </form>
+        </details>
+        <details>
+          <summary>Outils dynamiques</summary>
+          <ul id="tool-list" class="skill-results"></ul>
+          <form id="tool-register" class="stack">
+            <textarea name="manifest" rows="8" placeholder='{"name":"my_api","description":"…","method":"GET","url":"https://api.example.com/{id}","parameters":{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}}'></textarea>
+            <button>Enregistrer l'outil HTTP</button>
+          </form>
+        </details>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
