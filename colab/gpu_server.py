@@ -150,17 +150,19 @@ def start_tunnel(port: int) -> str:
                         "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"],
                        check=True)
         os.chmod("/usr/local/bin/cloudflared", 0o755)
-    proc = subprocess.Popen(["/usr/local/bin/cloudflared", "tunnel", "--no-autoupdate", "--url", f"http://localhost:{port}"],
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    deadline = time.time() + 60
+    subprocess.run("pkill -f 'cloudflared tunnel'", shell=True)
+    log = "/tmp/cloudflared.log"
+    subprocess.Popen(f"/usr/local/bin/cloudflared tunnel --no-autoupdate --url http://localhost:{port} > {log} 2>&1", shell=True)
+    deadline = time.time() + 180  # quick tunnels can take 1-2 minutes to come up
     while time.time() < deadline:
-        line = proc.stdout.readline()
-        m = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", line or "")
+        time.sleep(3)
+        try:
+            m = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", open(log).read())
+        except FileNotFoundError:
+            m = None
         if m:
-            # keep draining the pipe so cloudflared never blocks
-            threading.Thread(target=lambda: [None for _ in proc.stdout], daemon=True).start()
             return m.group(0)
-    raise RuntimeError("cloudflared did not print a URL within 60 s")
+    raise RuntimeError(f"cloudflared did not print a URL within 180 s (see {log})")
 
 
 def run_server_in_background(port: int = PORT):
