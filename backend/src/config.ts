@@ -26,6 +26,8 @@ export const config = {
           : "anthropic:claude-sonnet-4-6"),
   /** Max model calls per minute across all agents (0 = unlimited). Set ~8 for the Gemini free tier. */
   modelRpm: Number(process.env.MODEL_RPM ?? 0),
+  /** Comma-separated models tried in order when the main model fails (overloaded, quota…). */
+  modelFallbacks: (process.env.MODEL_FALLBACKS ?? "").split(",").map((m) => m.trim()).filter(Boolean),
   /** Optional cheaper/faster model for the sub-agents. */
   subagentModel: process.env.SUBAGENT_MODEL || undefined,
   colabUrl: (process.env.COLAB_GPU_URL ?? "").replace(/\/+$/, ""),

@@ -44,17 +44,23 @@ jobs:
           import json, os, re, urllib.request
           url = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=" + os.environ["GOOGLE_API_KEY"]
           models = json.load(urllib.request.urlopen(url)).get("models", [])
-          found = []
+          flash, lite = [], []
           for m in models:
               name = m["name"].split("/")[-1]
-              hit = re.fullmatch(r"gemini-(\d+(?:\.\d+)?)-flash", name)
-              if hit and "generateContent" in m.get("supportedGenerationMethods", []):
-                  found.append((float(hit.group(1)), name))
-          print(max(found)[1] if found else "gemini-2.5-flash")
+              if "generateContent" not in m.get("supportedGenerationMethods", []):
+                  continue
+              hit = re.fullmatch(r"gemini-(\d+(?:\.\d+)?)-flash(-lite)?", name)
+              if hit:
+                  (lite if hit.group(2) else flash).append((float(hit.group(1)), name))
+          ordered = [n for _, n in sorted(flash, reverse=True)] + [n for _, n in sorted(lite, reverse=True)]
+          print(" ".join(ordered or ["gemini-2.5-flash"]))
           PY
               )
-              echo "Using Gemini model: $NAME"
-              echo "MODEL=google-genai:$NAME" >> "$GITHUB_ENV"
+              set -- $NAME
+              echo "Using Gemini model: $1 (fallbacks: ${*:2})"
+              echo "MODEL=google-genai:$1" >> "$GITHUB_ENV"
+              FB=""; for m in "${@:2}"; do FB="$FB${FB:+,}google-genai:$m"; done
+              echo "MODEL_FALLBACKS=$FB" >> "$GITHUB_ENV"
             fi
           fi
           if curl -sf --max-time 20 "${COLAB_GPU_URL%/}/health"; then

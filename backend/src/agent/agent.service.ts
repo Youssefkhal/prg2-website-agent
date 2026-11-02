@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { createDeepAgent, FilesystemBackend } from "deepagents";
 import { MemorySaver } from "@langchain/langgraph";
+import { modelFallbackMiddleware } from "langchain";
 import { config } from "../config";
 import { RegistryService } from "../registry/registry.service";
 import { currentContext, projectDirFor, runContext, sanitizeThreadId } from "../run-context";
@@ -53,13 +54,16 @@ export class AgentService {
     const { skills, tools } = this.registry;
     const dynamic = createDynamicContextMiddleware(skills, tools, { autoSuggest: config.autoSuggestSkills, modelRpm: config.modelRpm });
     const subModel = this.modelOverride ?? createChatModel(config.subagentModel);
+    // Fallback models (e.g. other Gemini Flash versions when one is overloaded), outermost so they wrap the whole call.
+    const fallbacks = this.modelOverride ? [] : config.modelFallbacks.map((m) => createChatModel(m));
+    const mw: any[] = fallbacks.length ? [modelFallbackMiddleware(...fallbacks), dynamic] : [dynamic];
 
     this.agent = createDeepAgent({
       name: "atelier",
       model: (this.modelOverride as any) ?? createChatModel(config.model),
       systemPrompt: MAIN_SYSTEM_PROMPT,
       tools: [],
-      middleware: [dynamic],
+      middleware: mw,
       checkpointer: this.checkpointer,
       // Real files on disk, one folder per conversation/project: backend/workspace/<threadId>/
       backend: () => new FilesystemBackend({ rootDir: currentContext().projectDir, virtualMode: true }),
@@ -69,7 +73,7 @@ export class AgentService {
           description: "Writes all website copy (titles, meta descriptions, sections, CTAs, alt texts) into /content/*.md from /brief.md.",
           systemPrompt: COPYWRITER_PROMPT,
           tools: [],
-          middleware: [dynamic],
+          middleware: mw,
           ...(subModel ? { model: subModel } : {}),
         },
         {
@@ -78,7 +82,7 @@ export class AgentService {
             "Art director: generates the website images (hero, sections, team/office scenes…) on the Colab T4 GPU with generate_image, consistent with the brand. Give it the list of images, sizes and art direction.",
           systemPrompt: IMAGE_DESIGNER_PROMPT,
           tools: [generateImageTool],
-          middleware: [dynamic],
+          middleware: mw,
           ...(subModel ? { model: subModel } : {}),
         },
         {
@@ -86,7 +90,7 @@ export class AgentService {
           description: "Front-end developer: builds the responsive static site in /site (HTML, CSS, JS) from /brief.md, /content and the images.",
           systemPrompt: WEB_DEVELOPER_PROMPT,
           tools: [],
-          middleware: [dynamic],
+          middleware: mw,
           ...(subModel ? { model: subModel } : {}),
         },
         {
@@ -94,7 +98,7 @@ export class AgentService {
           description: "Audits the finished site (SEO, accessibility, broken links/images, consistency) and fixes the problems.",
           systemPrompt: QA_PROMPT,
           tools: [tools.get("audit_website")!.tool],
-          middleware: [dynamic],
+          middleware: mw,
           ...(subModel ? { model: subModel } : {}),
         },
       ],

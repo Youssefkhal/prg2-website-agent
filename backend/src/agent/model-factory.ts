@@ -21,7 +21,7 @@ export class GeminiToolCompatibleChat extends ChatGoogleGenerativeAI {
 export function createChatModel(spec: string | undefined): any {
   if (!spec) return spec;
   if (spec.startsWith("google-genai:")) {
-    return new GeminiToolCompatibleChat({ model: spec.slice("google-genai:".length), maxRetries: 8, temperature: 0.4 });
+    return new GeminiToolCompatibleChat({ model: spec.slice("google-genai:".length), maxRetries: Number(process.env.MODEL_MAX_RETRIES ?? 4), temperature: 0.4 });
   }
   return spec;
 }
