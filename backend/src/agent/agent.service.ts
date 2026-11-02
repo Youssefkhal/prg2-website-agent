@@ -36,6 +36,13 @@ export class AgentService {
   private readonly checkpointer = new MemorySaver();
   private agent: any;
   private readonly busy = new Set<string>();
+  /** Optional model instance (tests inject a scripted model; normally the MODEL string from .env is used). */
+  private modelOverride?: unknown;
+
+  setModel(model: unknown): void {
+    this.modelOverride = model;
+    this.agent = undefined;
+  }
 
   constructor(@Inject(RegistryService) private readonly registry: RegistryService) {}
 
@@ -44,11 +51,11 @@ export class AgentService {
     if (this.agent) return this.agent;
     const { skills, tools } = this.registry;
     const dynamic = createDynamicContextMiddleware(skills, tools, { autoSuggest: config.autoSuggestSkills });
-    const subModel = config.subagentModel;
+    const subModel = this.modelOverride ?? config.subagentModel;
 
     this.agent = createDeepAgent({
       name: "atelier",
-      model: config.model,
+      model: (this.modelOverride as any) ?? config.model,
       systemPrompt: MAIN_SYSTEM_PROMPT,
       tools: [],
       middleware: [dynamic],

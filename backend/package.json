@@ -9,7 +9,7 @@
     "start": "node dist/main.js",
     "dev": "tsc -p tsconfig.json && node --watch dist/main.js",
     "skills:demo": "node scripts/generate-demo-skills.mjs 1000",
-    "test": "tsc -p tsconfig.json && node --test test/registry.test.js",
+    "test": "tsc -p tsconfig.json && node --test test/registry.test.js test/agent-e2e.test.js",
     "demo": "node dist/cli/demo.js"
   },
   "dependencies": {
