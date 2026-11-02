@@ -35,7 +35,28 @@ jobs:
         run: |
           if [ -z "$GOOGLE_API_KEY$ANTHROPIC_API_KEY$OPENAI_API_KEY" ]; then
             echo "::error::Add a GOOGLE_API_KEY (free), ANTHROPIC_API_KEY or OPENAI_API_KEY repository secret."; exit 1; fi
-          if [ -n "$GOOGLE_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY$OPENAI_API_KEY" ]; then echo "MODEL_RPM=8" >> "$GITHUB_ENV"; fi
+          if [ -n "$GOOGLE_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY$OPENAI_API_KEY" ]; then
+            echo "MODEL_RPM=8" >> "$GITHUB_ENV"
+            if [ -z "$MODEL" ]; then
+              # Pick the newest stable "gemini-<version>-flash" model available to this key
+              # (a versioned name is required: the LangChain Gemini connector enables image input by name prefix).
+              NAME=$(python3 - <<'PY'
+          import json, os, re, urllib.request
+          url = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=" + os.environ["GOOGLE_API_KEY"]
+          models = json.load(urllib.request.urlopen(url)).get("models", [])
+          found = []
+          for m in models:
+              name = m["name"].split("/")[-1]
+              hit = re.fullmatch(r"gemini-(\d+(?:\.\d+)?)-flash", name)
+              if hit and "generateContent" in m.get("supportedGenerationMethods", []):
+                  found.append((float(hit.group(1)), name))
+          print(max(found)[1] if found else "gemini-2.5-flash")
+          PY
+              )
+              echo "Using Gemini model: $NAME"
+              echo "MODEL=google-genai:$NAME" >> "$GITHUB_ENV"
+            fi
+          fi
           if curl -sf --max-time 20 "${COLAB_GPU_URL%/}/health"; then
             echo; echo "Colab T4 GPU server is reachable."
           elif [ "${{ inputs.allow_placeholder_images }}" = "true" ]; then

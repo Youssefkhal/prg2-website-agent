@@ -11,7 +11,7 @@ export const config = {
    * Any LangChain "provider:model" string, e.g.
    *   anthropic:claude-sonnet-4-6   (needs ANTHROPIC_API_KEY)
    *   openai:gpt-4.1               (needs OPENAI_API_KEY, optional OPENAI_BASE_URL)
-   *   google-genai:gemini-flash-latest (needs GOOGLE_API_KEY — free tier, no card)
+   *   google-genai:gemini-2.5-flash  (needs GOOGLE_API_KEY — free tier, no card)
    * If MODEL is empty, the first provider with a key is used.
    * The model must accept images (multimodal) and support tool calling.
    */
@@ -20,7 +20,7 @@ export const config = {
     (process.env.ANTHROPIC_API_KEY
       ? "anthropic:claude-sonnet-4-6"
       : process.env.GOOGLE_API_KEY
-        ? "google-genai:gemini-flash-latest"
+        ? "google-genai:gemini-2.5-flash"
         : process.env.OPENAI_API_KEY
           ? "openai:gpt-4.1"
           : "anthropic:claude-sonnet-4-6"),
