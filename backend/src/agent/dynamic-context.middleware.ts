@@ -23,7 +23,21 @@ import { scanConversation } from "./conversation-scan";
 
 export { scanConversation };
 
-export function createDynamicContextMiddleware(skills: SkillRegistry, tools: ToolRegistry, opts: { autoSuggest: number }) {
+/** Simple shared rate limiter for model calls (free-tier APIs allow only a few requests per minute). */
+function createRateLimiter(rpm: number) {
+  if (!rpm || rpm <= 0) return async () => {};
+  const interval = 60_000 / rpm;
+  let next = 0;
+  return async () => {
+    const now = Date.now();
+    const at = Math.max(now, next);
+    next = at + interval;
+    if (at > now) await new Promise((r) => setTimeout(r, at - now));
+  };
+}
+
+export function createDynamicContextMiddleware(skills: SkillRegistry, tools: ToolRegistry, opts: { autoSuggest: number; modelRpm?: number }) {
+  const throttle = createRateLimiter(opts.modelRpm ?? 0);
   const searchSkills = tool(
     async ({ query, k }) => {
       const hits = await skills.search(query, k ?? 6);
@@ -125,6 +139,7 @@ export function createDynamicContextMiddleware(skills: SkillRegistry, tools: Too
         .filter(Boolean)
         .join("\n");
 
+      await throttle();
       return handler({
         ...request,
         systemMessage: request.systemMessage.concat(section),

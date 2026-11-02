@@ -50,7 +50,7 @@ export class AgentService {
   private getAgent(): any {
     if (this.agent) return this.agent;
     const { skills, tools } = this.registry;
-    const dynamic = createDynamicContextMiddleware(skills, tools, { autoSuggest: config.autoSuggestSkills });
+    const dynamic = createDynamicContextMiddleware(skills, tools, { autoSuggest: config.autoSuggestSkills, modelRpm: config.modelRpm });
     const subModel = this.modelOverride ?? config.subagentModel;
 
     this.agent = createDeepAgent({
