@@ -25,7 +25,7 @@ export interface GeneratedImage {
 export class ColabGpuClient {
   constructor(
     private readonly baseUrl = config.colabUrl,
-    private readonly token = config.colabToken,
+    private readonly token = config.colabToken.trim(),
   ) {}
 
   get configured(): boolean {
@@ -34,6 +34,8 @@ export class ColabGpuClient {
 
   private async post<T>(path: string, body: unknown, timeoutMs: number): Promise<T> {
     if (!this.baseUrl) throw new Error("COLAB_GPU_URL is not set (start colab/gpu_server.ipynb on a T4 runtime)");
+    if (/[^\x21-\x7e]/.test(this.token))
+      throw new Error("COLAB_GPU_TOKEN contains invalid characters (it looks truncated, e.g. ends or starts with '…'): copy the full value printed by the notebook");
     const res = await fetch(this.baseUrl + path, {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": this.token },

@@ -51,12 +51,17 @@ export const generateImageTool = tool(
       fs.writeFileSync(full, placeholderSvg(prompt, w, h));
       return `GPU server not configured (COLAB_GPU_URL empty): wrote a placeholder ${w}x${h} SVG to ${rel}. Reference it from /site/*.html as "assets/images/${slug}.svg".`;
     }
-    const img = await colab.generateImage({ prompt, negative_prompt, width: w, height: h, seed });
-    const rel = `/site/assets/images/${slug}.png`;
-    const full = resolveVirtual(rel);
-    fs.mkdirSync(path.dirname(full), { recursive: true });
-    fs.writeFileSync(full, img.png);
-    return `Generated on Colab T4 in ${img.elapsed_s}s (${img.width}x${img.height}, seed ${img.seed}). Saved to ${rel}. Reference it from /site/*.html as "assets/images/${slug}.png".`;
+    try {
+      const img = await colab.generateImage({ prompt, negative_prompt, width: w, height: h, seed });
+      const rel = `/site/assets/images/${slug}.png`;
+      const full = resolveVirtual(rel);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, img.png);
+      return `Generated on Colab T4 in ${img.elapsed_s}s (${img.width}x${img.height}, seed ${img.seed}). Saved to ${rel}. Reference it from /site/*.html as "assets/images/${slug}.png".`;
+    } catch (e: any) {
+      // Report the failure to the agent instead of crashing the whole run.
+      return `ERROR: image generation failed on the Colab GPU server (${e?.message ?? e}). Retry once; if it fails again, continue without this image and mention it in your final summary.`;
+    }
   },
   {
     name: "generate_image",

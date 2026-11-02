@@ -63,12 +63,14 @@ jobs:
               echo "MODEL_FALLBACKS=$FB" >> "$GITHUB_ENV"
             fi
           fi
-          if curl -sf --max-time 20 "${COLAB_GPU_URL%/}/health"; then
-            echo; echo "Colab T4 GPU server is reachable."
+          if curl -sf --max-time 20 "${COLAB_GPU_URL%/}/health" && \
+             curl -sf --max-time 60 -H "content-type: application/json" -H "x-api-key: $COLAB_GPU_TOKEN" \
+               -d '{"texts":["test"],"kind":"query"}' "${COLAB_GPU_URL%/}/embed" > /dev/null; then
+            echo; echo "Colab T4 GPU server is reachable and the token is valid."
           elif [ "${{ inputs.allow_placeholder_images }}" = "true" ]; then
             echo "::warning::Colab GPU not reachable: placeholder images will be used."; echo "COLAB_GPU_URL=" >> "$GITHUB_ENV"
           else
-            echo "::error::Colab GPU server not reachable at '$COLAB_GPU_URL'. Start colab/gpu_server.ipynb on a T4 and update the COLAB_GPU_URL / COLAB_GPU_TOKEN secrets."; exit 1
+            echo "::error::Colab GPU server not reachable or token rejected. Start colab/gpu_server.ipynb on a T4 and copy the FULL printed values into the COLAB_GPU_URL / COLAB_GPU_TOKEN secrets."; exit 1
           fi
       - uses: actions/setup-node@v4
         with:
@@ -82,8 +84,10 @@ jobs:
           test -f ../website/site/index.html || { echo "::error::The agent did not produce site/index.html"; exit 1; }
           node -e 'const {auditSite}=require("./dist/tools/web-utils");const r=auditSite("../website/site");console.log("Audit:",r.summary);r.issues.forEach(i=>console.log(" -",i.severity,i.file,i.message))'
       - name: Save the run log
-        run: mkdir -p website && cp agent-run.log website/agent-run.log
+        if: always()
+        run: mkdir -p website && cp agent-run.log website/agent-run.log || true
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: website
           path: website
