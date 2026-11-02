@@ -8,6 +8,7 @@ const path = require("node:path");
 const { SkillRegistry, parseFrontmatter } = require("../dist/skills/skill-registry");
 const { scanConversation } = require("../dist/agent/conversation-scan");
 const { buildPalette, auditSite, contrastRatio } = require("../dist/tools/web-utils");
+const { toGeminiSchema } = require("../dist/agent/gemini-schema");
 
 const skillsDir = path.join(__dirname, "..", "skills");
 
@@ -60,4 +61,25 @@ test("site audit detects broken assets and missing alt", () => {
   const r = auditSite(dir);
   assert.ok(r.issues.some((i) => /broken/.test(i.message)));
   assert.ok(r.issues.some((i) => /alt/.test(i.message)));
+});
+
+test("tool schemas are converted to the subset Gemini accepts", () => {
+  const out = toGeminiSchema({
+    type: "object",
+    additionalProperties: false,
+    $schema: "http://json-schema.org/draft-07/schema#",
+    properties: {
+      pattern: { type: "string" },
+      glob: { type: ["string", "null"], default: null, description: "filter" },
+      max_count: { anyOf: [{ type: "integer", exclusiveMinimum: 0 }, { type: "null" }], default: null },
+      mode: { type: "string", enum: ["a", "b"], default: "a" },
+      todos: { type: "array", items: { type: "object", properties: { content: { type: "string" } }, required: ["content"], additionalProperties: false } },
+    },
+    required: ["pattern"],
+  });
+  const json = JSON.stringify(out);
+  assert.ok(!/additionalProperties|\$schema|default|exclusiveMinimum|anyOf|"null"/.test(json), json);
+  assert.deepEqual(out.properties.glob, { type: "string", description: "filter", nullable: true });
+  assert.deepEqual(out.properties.max_count, { type: "integer", nullable: true });
+  assert.deepEqual(out.required, ["pattern"]);
 });

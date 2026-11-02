@@ -9,6 +9,7 @@ import { currentContext, projectDirFor, runContext, sanitizeThreadId } from "../
 import { generateImageTool } from "../tools/tool-registry";
 import { slugify } from "../tools/web-utils";
 import { createDynamicContextMiddleware } from "./dynamic-context.middleware";
+import { createChatModel } from "./model-factory";
 import { COPYWRITER_PROMPT, IMAGE_DESIGNER_PROMPT, MAIN_SYSTEM_PROMPT, QA_PROMPT, WEB_DEVELOPER_PROMPT } from "./prompts";
 
 export interface ImageInput {
@@ -51,11 +52,11 @@ export class AgentService {
     if (this.agent) return this.agent;
     const { skills, tools } = this.registry;
     const dynamic = createDynamicContextMiddleware(skills, tools, { autoSuggest: config.autoSuggestSkills, modelRpm: config.modelRpm });
-    const subModel = this.modelOverride ?? config.subagentModel;
+    const subModel = this.modelOverride ?? createChatModel(config.subagentModel);
 
     this.agent = createDeepAgent({
       name: "atelier",
-      model: (this.modelOverride as any) ?? config.model,
+      model: (this.modelOverride as any) ?? createChatModel(config.model),
       systemPrompt: MAIN_SYSTEM_PROMPT,
       tools: [],
       middleware: [dynamic],
