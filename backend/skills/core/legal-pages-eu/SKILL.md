@@ -5,14 +5,14 @@ tags: [legal, mentions legales, rgpd, gdpr, privacy, cookies, france]
 ---
 # Legal pages (France / EU) — informational template, not legal advice
 
-## Mentions légales (LCEN art. 6) must contain
+## Legal notice ("mentions légales", French LCEN art. 6) must contain
 - Company name, legal form, share capital, registered office address
-- RCS / SIREN number, intra-EU VAT number → use placeholders "[SIREN à compléter]" — never invent
-- Publication director (directeur de la publication), contact email/phone
-- Host (hébergeur): name, address, phone
+- RCS / SIREN number, intra-EU VAT number → use placeholders "[company number to complete]" — never invent
+- Publication director, contact email/phone
+- Host: name, address, phone
 
-## Politique de confidentialité (RGPD)
-Data controller · data collected (contact form: name, email, message) · purpose · legal basis · retention period · recipients · rights (access, rectification, erasure, opposition, portability) · how to exercise them · right to complain to the CNIL.
+## Privacy policy (GDPR)
+Data controller · data collected (contact form: name, email, message) · purpose · legal basis · retention period · recipients · rights (access, rectification, erasure, opposition, portability) · how to exercise them · right to complain to the data-protection authority (CNIL in France).
 
 ## Cookies
 If only technical cookies / no tracking: state it. If analytics: consent banner required before deposit.

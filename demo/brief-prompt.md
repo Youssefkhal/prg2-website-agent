@@ -1,8 +1,8 @@
-Crée le site vitrine de **Verdance** (entreprise fictive), cabinet de conseil en transition énergétique pour les PME et ETI, basé à Lyon.
+Create the corporate website of **Verdance** (a fictional company), an energy-transition consultancy for small and mid-sized companies, based in Lyon, France.
 
-- Offre : audit énergétique, solaire en autoconsommation, rénovation et efficacité des bâtiments, montage des aides et du financement (CEE, MaPrimeRénov' tertiaire…).
-- Chiffres : 12 ingénieurs, 240 sites accompagnés, -32 % de consommation en moyenne après travaux.
-- Ton : expert, concret, chaleureux. Public : dirigeants de PME industrielles et tertiaires.
-- Pages : accueil, services, à propos, contact, mentions légales. Site en français.
-- Le logo est joint : reprends ses couleurs (vert profond + ambre) et utilise-le dans l'en-tête.
-- Images : photos/illustrations cohérentes (toitures solaires, ingénieurs sur site, bâtiments tertiaires lumineux).
+- Services: energy audits, on-site solar (self-consumption), building renovation and efficiency, grant and funding applications.
+- Key figures: 12 engineers, 240 sites supported, −32% average energy use after the works.
+- Tone: expert, concrete, warm. Audience: managers of industrial and commercial SMEs.
+- Pages: home, services, about, contact, legal notice. Website in English.
+- The logo is attached: reuse its colours (deep green + amber) and put it in the header.
+- Images: consistent photos/illustrations (solar roofs, engineers on site, bright office buildings).

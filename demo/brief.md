@@ -1,36 +1,36 @@
-# Brief — Verdance (entreprise fictive)
+# Brief — Verdance (fictional company)
 
-Structure produced following the agent's workflow (`/brief.md` → `/content` → `/site`).
+Structured brief following the agent's workflow (`/brief.md` → `/content` → `/site`).
 
-## Entreprise
-- Verdance, cabinet de conseil en transition énergétique, Lyon (2e).
-- Clients : PME et ETI industrielles et tertiaires (1 000 – 40 000 m²), Auvergne-Rhône-Alpes.
-- Chiffres : 12 ingénieurs · 240 sites accompagnés · −32 % de consommation moyenne après travaux · ROI moyen 4 ans.
+## Company
+- Verdance, energy-transition consultancy, Lyon (France).
+- Clients: small and mid-sized industrial and commercial companies (1,000 – 40,000 m² sites), Auvergne-Rhône-Alpes region.
+- Key figures: 12 engineers · 240 sites supported · −32% average energy use after the works · 4-year average payback.
 
-## Ton
-Expert, concret, chaleureux. Vouvoiement, typographie française, pas de jargon non expliqué.
+## Tone
+Expert, concrete, warm. Plain English, no unexplained jargon.
 
-## Marque (analyse de l'image jointe `inputs/logo.svg`)
-- Primaire : vert profond `#1f5e45` · foncé `#13261d` · accent ambre `#f2a93b` · surface `#f6f8f4`.
-- Logo : pastille verte + feuille ambre, logotype serif → titres en serif (Fraunces), texte en Inter.
-- Ambiance : nature + ingénierie, lumineux, rassurant.
+## Brand (analysis of the attached image `inputs/logo.svg`)
+- Primary: deep green `#1f5e45` · dark `#13261d` · amber accent `#f2a93b` · surface `#f6f8f4`.
+- Logo: green disc + amber leaf, serif wordmark → serif headings (Fraunces), body text in Inter.
+- Mood: nature + engineering, bright, reassuring.
 
-## Arborescence
-| Page | Fichier | Objectif |
+## Sitemap
+| Page | File | Goal |
 |---|---|---|
-| Accueil | index.html | promesse, chiffres, 4 services, méthode, témoignage, FAQ, CTA |
-| Services | services.html | un bloc par service (audit, solaire, rénovation, financement) |
-| À propos | a-propos.html | histoire, valeurs, équipe |
-| Contact | contact.html | formulaire RGPD, coordonnées, accès |
-| Mentions légales | mentions-legales.html | LCEN + RGPD + cookies (champs à compléter) |
+| Home | index.html | promise, key figures, 4 services, method, testimonial, FAQ, CTA |
+| Services | services.html | one section per service (audit, solar, renovation, funding) |
+| About | about.html | story, values, team |
+| Contact | contact.html | GDPR-compliant form, contact details, directions |
+| Legal notice | legal.html | publisher, hosting, privacy (GDPR), cookies (fields to complete) |
 
 ## Images
-| Fichier | Taille | Emplacement |
+| File | Size | Placement |
 |---|---|---|
-| hero-accueil | 1024×576 | hero accueil |
-| service-audit / -solaire / -renovation / -financement | 768×512 | cartes + pages services |
-| a-propos-equipe | 768×512 | à propos |
-| contact-bureaux | 768×512 | contact |
+| hero-home | 1024×576 | home hero |
+| service-audit / -solar / -renovation / -funding | 768×512 | cards + services page |
+| about-team | 768×512 | about page |
+| contact-office | 768×512 | contact page |
 
-## Hypothèses
-Adresse, téléphone, témoignage et équipe sont fictifs et signalés comme tels ; identifiants légaux en `[à compléter]`.
+## Assumptions
+Address, phone number, testimonial and team are fictional and labelled as such; legal identifiers are left as `[to complete]`.

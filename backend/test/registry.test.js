@@ -24,7 +24,7 @@ test("skill retrieval returns only the relevant skills", async () => {
   r.load();
   assert.ok(r.size >= 12);
   assert.equal((await r.search("prompts for hero images", 3))[0].name, "image-prompting-sdxl");
-  assert.equal((await r.search("mentions légales et RGPD", 3))[0].name, "legal-pages-eu");
+  assert.equal((await r.search("legal notice and GDPR privacy policy", 3))[0].name, "legal-pages-eu");
   assert.deepEqual(r.get("image-prompting-sdxl").tools, ["generate_image"]);
 });
 
@@ -35,7 +35,7 @@ test("dynamic skill registration is searchable immediately", async () => {
   assert.equal(r.size, 0);
   r.register({ name: "Restaurant Menu Page", description: "Design a restaurant menu page with dishes and prices", body: "# Menu", tags: ["food"] });
   assert.equal(r.size, 1);
-  assert.equal((await r.search("menu du restaurant", 1))[0].name, "restaurant-menu-page");
+  assert.equal((await r.search("restaurant menu", 1))[0].name, "restaurant-menu-page");
 });
 
 test("conversation scan finds loaded skills and enabled tools", () => {

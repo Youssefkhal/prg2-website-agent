@@ -14,8 +14,8 @@ tags: [copywriting, text, content, headline, cta, redaction, texte]
 - Tone: pick 3 adjectives in the brief and stick to them (e.g. expert, warm, direct).
 - About page: origin story (why) → mission → values (3) → team → numbers → CTA.
 - Service block: Problem → Solution → Deliverables → Benefit → CTA.
-- French copy: use "vous", French typography (espace insécable avant : ; ! ?, guillemets « »).
-- Never invent client names, certifications or figures: use [à compléter] placeholders and tell the user.
+- French-language copy: use the formal "vous" and French typography (non-breaking space before : ; ! ? and « » quotation marks).
+- Never invent client names, certifications or figures: use [to complete] placeholders and tell the user.
 
 ## /content/<page>.md format
 ```

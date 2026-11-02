@@ -1,14 +1,14 @@
 /* Atelier — web interface (vanilla JS, no build step) */
 const $ = (s) => document.querySelector(s);
 const MAIN = "atelier";
-const AGENT_LABEL = { atelier: "Atelier (agent principal)", copywriter: "Sous-agent · rédacteur", "image-designer": "Sous-agent · directeur artistique (GPU)", "web-developer": "Sous-agent · développeur web", "qa-reviewer": "Sous-agent · QA", "general-purpose": "Sous-agent · généraliste", "sub-agent": "Sous-agent" };
+const AGENT_LABEL = { atelier: "Atelier (main agent)", copywriter: "Sub-agent · copywriter", "image-designer": "Sub-agent · art director (GPU)", "web-developer": "Sub-agent · web developer", "qa-reviewer": "Sub-agent · QA", "general-purpose": "Sub-agent · general purpose", "sub-agent": "Sub-agent" };
 
 /* ---------------------------------------------------------------- projects */
 const projects = JSON.parse(localStorage.getItem("atelier.projects") || "[]");
 let threadId = localStorage.getItem("atelier.current");
 function newProject() {
   threadId = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  projects.unshift({ id: threadId, title: "Nouveau projet", at: Date.now() });
+  projects.unshift({ id: threadId, title: "New project", at: Date.now() });
   saveProjects();
 }
 function saveProjects() {
@@ -74,7 +74,7 @@ function addUser(text, images) {
 function addAssistant(agent, text = "") {
   const el = document.createElement("div");
   el.className = "msg assistant" + (isSub(agent) ? " sub" : "");
-  el.innerHTML = `<div class="who">${esc(AGENT_LABEL[agent] || "Sous-agent · " + agent)}</div><div class="body"></div>`;
+  el.innerHTML = `<div class="who">${esc(AGENT_LABEL[agent] || "Sub-agent · " + agent)}</div><div class="body"></div>`;
   box.appendChild(el);
   bubble = { agent, el, text };
   if (text) el.querySelector(".body").innerHTML = md(text);
@@ -128,7 +128,7 @@ function onToolResult(e) {
     }
   }
   if (e.name === "write_todos" && Array.isArray(args.todos)) renderTodos(args.todos);
-  if (e.name === "task") activity(`<b>${esc(args.subagent_type || "sous-agent")}</b> a terminé : ${esc((args.description || "").slice(0, 120))}`);
+  if (e.name === "task") activity(`<b>${esc(args.subagent_type || "sub-agent")}</b> finished: ${esc((args.description || "").slice(0, 120))}`);
   if (["write_file", "edit_file", "generate_image", "task", "delete"].includes(e.name)) refreshSoon();
   scroll();
 }
@@ -206,7 +206,7 @@ composer.addEventListener("submit", async (e) => {
   $("#input").value = "";
   addUser(text, images);
   const p = projects.find((x) => x.id === threadId);
-  if (p && p.title === "Nouveau projet" && text) {
+  if (p && p.title === "New project" && text) {
     p.title = text.slice(0, 40);
     saveProjects();
   }
@@ -248,11 +248,11 @@ function handle(e) {
     case "tool_call": return onToolCall(e);
     case "tool_args": return onToolArgs(e);
     case "tool_result": return onToolResult(e);
-    case "uploads": return activity(`images enregistrées : ${e.files.map(esc).join(", ")}`);
+    case "uploads": return activity(`images saved: ${e.files.map(esc).join(", ")}`);
     case "error": {
       const el = addAssistant(MAIN).el;
       el.classList.add("error");
-      el.querySelector(".body").textContent = "Erreur : " + e.message;
+      el.querySelector(".body").textContent = "Error: " + e.message;
       return;
     }
   }
@@ -266,7 +266,7 @@ function refreshSoon() {
 }
 async function refresh() {
   const files = await (await fetch(`/api/projects/${threadId}/files`)).json();
-  $("#file-list").innerHTML = files.map((f) => `<li data-p="${esc(f.path)}">${esc(f.path)} <span>${(f.size / 1024).toFixed(1)} ko</span></li>`).join("") || `<li class="empty">Aucun fichier</li>`;
+  $("#file-list").innerHTML = files.map((f) => `<li data-p="${esc(f.path)}">${esc(f.path)} <span>${(f.size / 1024).toFixed(1)} KB</span></li>`).join("") || `<li class="empty">No files</li>`;
   const pages = files.filter((f) => f.path.startsWith("/site/") && f.path.endsWith(".html")).map((f) => f.path);
   const sel = $("#page-select");
   const prev = sel.value;
@@ -309,7 +309,7 @@ document.querySelectorAll(".tabs button").forEach((b) =>
 $("#skill-search").addEventListener("submit", async (e) => {
   e.preventDefault();
   const r = await (await fetch(`/api/skills?q=${encodeURIComponent($("#skill-q").value)}&k=12`)).json();
-  $("#skill-results").innerHTML = r.items.map((s) => `<li><b>${esc(s.name)}</b> ${s.score != null ? `<span class="pill">${s.score}</span>` : ""}<small>${esc(s.description)}</small>${s.tools.length ? `<small>outils : ${esc(s.tools.join(", "))}</small>` : ""}</li>`).join("") || "<li>Aucun résultat</li>";
+  $("#skill-results").innerHTML = r.items.map((s) => `<li><b>${esc(s.name)}</b> ${s.score != null ? `<span class="pill">${s.score}</span>` : ""}<small>${esc(s.description)}</small>${s.tools.length ? `<small>tools: ${esc(s.tools.join(", "))}</small>` : ""}</li>`).join("") || "<li>No results</li>";
 });
 $("#skill-register").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -317,7 +317,7 @@ $("#skill-register").addEventListener("submit", async (e) => {
   const list = (k) => String(f.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
   const res = await fetch("/api/skills", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: f.get("name"), description: f.get("description"), body: f.get("body"), tags: list("tags"), tools: list("tools") }) });
   const j = await res.json();
-  alert(res.ok ? `Skill « ${j.registered.name} » enregistré (${j.total} skills).` : j.message);
+  alert(res.ok ? `Skill "${j.registered.name}" registered (${j.total} skills).` : j.message);
   if (res.ok) e.target.reset(), health();
 });
 async function loadTools() {
@@ -330,11 +330,11 @@ $("#tool-register").addEventListener("submit", async (e) => {
   try {
     manifest = JSON.parse(new FormData(e.target).get("manifest"));
   } catch {
-    return alert("JSON invalide");
+    return alert("Invalid JSON");
   }
   const res = await fetch("/api/tools", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(manifest) });
   const j = await res.json();
-  alert(res.ok ? `Outil « ${j.registered.name} » enregistré.` : j.message);
+  alert(res.ok ? `Tool "${j.registered.name}" registered.` : j.message);
   if (res.ok) loadTools();
 });
 
@@ -343,13 +343,13 @@ async function health() {
   try {
     const h = await (await fetch("/api/health")).json();
     const g = $("#gpu-pill");
-    g.textContent = h.gpu.ok ? `GPU Colab : ${h.gpu.gpu || h.gpu.device}` : "GPU Colab : hors ligne (images de remplacement)";
+    g.textContent = h.gpu.ok ? `Colab GPU: ${h.gpu.gpu || h.gpu.device}` : "Colab GPU: offline (placeholder images)";
     g.className = "pill " + (h.gpu.ok ? "ok" : "bad");
     g.title = JSON.stringify(h.gpu);
     $("#model-pill").textContent = h.model;
-    $("#skills-pill").textContent = `${h.skills.count} skills · ${h.skills.semanticIndex ? "index sémantique GPU" : "BM25"}`;
+    $("#skills-pill").textContent = `${h.skills.count} skills · ${h.skills.semanticIndex ? "GPU semantic index" : "BM25"}`;
   } catch {
-    $("#gpu-pill").textContent = "backend injoignable";
+    $("#gpu-pill").textContent = "backend unreachable";
   }
 }
 async function loadHistory() {
@@ -358,9 +358,9 @@ async function loadHistory() {
   try {
     const hist = await (await fetch(`/api/projects/${threadId}/history`)).json();
     for (const m of hist) m.role === "user" ? addUser(m.text) : addAssistant(MAIN, m.text);
-    if (!hist.length) box.innerHTML = `<div class="welcome"><h2>Nouveau projet</h2><p>Décrivez l'entreprise et joignez logo / photos.</p></div>`;
+    if (!hist.length) box.innerHTML = `<div class="welcome"><h2>New project</h2><p>Describe the company and attach a logo / photos.</p></div>`;
   } catch {}
-  $("#todos").innerHTML = `<li class="empty">Aucun plan pour l'instant.</li>`;
+  $("#todos").innerHTML = `<li class="empty">No plan yet.</li>`;
   refresh();
 }
 $("#new-project").addEventListener("click", () => {
@@ -376,5 +376,5 @@ $("#project-select").addEventListener("change", (e) => {
 health();
 loadTools();
 setInterval(health, 30000);
-if (projects.find((p) => p.id === threadId)?.title !== "Nouveau projet") loadHistory();
+if (projects.find((p) => p.id === threadId)?.title !== "New project") loadHistory();
 else refresh();

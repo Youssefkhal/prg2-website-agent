@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Contact – Demander un audit | Verdance</title>
-  <meta name="description" content="Contactez Verdance à Lyon pour un premier diagnostic énergétique offert. Réponse sous 48 heures ouvrées par un ingénieur.">
-  <meta property="og:title" content="Contact – Demander un audit | Verdance">
-  <meta property="og:description" content="Contactez Verdance à Lyon pour un premier diagnostic énergétique offert. Réponse sous 48 heures ouvrées par un ingénieur.">
-  <meta property="og:image" content="assets/images/hero-accueil.svg">
+  <title>Contact – Request an audit | Verdance</title>
+  <meta name="description" content="Contact Verdance in Lyon for a free first energy diagnosis. An engineer replies within two business days.">
+  <meta property="og:title" content="Contact – Request an audit | Verdance">
+  <meta property="og:description" content="Contact Verdance in Lyon for a free first energy diagnosis. An engineer replies within two business days.">
+  <meta property="og:image" content="assets/images/hero-home.svg">
   <meta property="og:type" content="website">
   <link rel="icon" href="assets/uploads/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,15 +17,15 @@
   <script src="js/main.js" defer></script>
 </head>
 <body>
-  <a class="skip" href="#main">Aller au contenu</a>
+  <a class="skip" href="#main">Skip to content</a>
   <header class="site-header">
     <div class="container nav">
-      <a href="index.html" class="brand"><img src="assets/uploads/logo.svg" alt="Verdance – accueil" width="165" height="42"></a>
+      <a href="index.html" class="brand"><img src="assets/uploads/logo.svg" alt="Verdance – home" width="165" height="42"></a>
       <button class="nav-toggle" aria-expanded="false" aria-controls="menu">Menu</button>
-      <nav aria-label="Navigation principale">
+      <nav aria-label="Main navigation">
         <ul id="menu" class="nav-links">
-          <li><a href="index.html">Accueil</a></li><li><a href="services.html">Services</a></li><li><a href="a-propos.html">À propos</a></li>
-          <li><a href="contact.html" class="btn" aria-current="page">Demander un audit</a></li>
+          <li><a href="index.html">Home</a></li><li><a href="services.html">Services</a></li><li><a href="about.html">About</a></li>
+          <li><a href="contact.html" class="btn" aria-current="page">Request an audit</a></li>
         </ul>
       </nav>
     </div>
@@ -34,8 +34,8 @@
     <div class="page-hero">
       <div class="container">
         <span class="eyebrow">Contact</span>
-        <h1>Parlons de votre bâtiment</h1>
-        <p class="lead">Décrivez votre site en quelques lignes : un ingénieur vous rappelle sous 48 heures ouvrées.</p>
+        <h1>Let's talk about your building</h1>
+        <p class="lead">Describe your site in a few lines: an engineer will call you back within two business days.</p>
       </div>
     </div>
 
@@ -43,33 +43,33 @@
       <div class="container contact-grid">
         <form id="contact-form" action="#" method="post" novalidate>
           <div class="row2">
-            <div class="field"><label for="nom">Nom et prénom *</label><input id="nom" name="nom" autocomplete="name" required></div>
-            <div class="field"><label for="societe">Entreprise *</label><input id="societe" name="societe" autocomplete="organization" required></div>
+            <div class="field"><label for="name">Full name *</label><input id="name" name="name" autocomplete="name" required></div>
+            <div class="field"><label for="company">Company *</label><input id="company" name="company" autocomplete="organization" required></div>
           </div>
           <div class="row2">
-            <div class="field"><label for="email">E-mail professionnel *</label><input id="email" name="email" type="email" autocomplete="email" required></div>
-            <div class="field"><label for="tel">Téléphone</label><input id="tel" name="tel" type="tel" autocomplete="tel"></div>
+            <div class="field"><label for="email">Work email *</label><input id="email" name="email" type="email" autocomplete="email" required></div>
+            <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" autocomplete="tel"></div>
           </div>
           <div class="field">
-            <label for="sujet">Votre besoin</label>
-            <select id="sujet" name="sujet">
-              <option>Audit énergétique</option><option>Solaire en autoconsommation</option><option>Rénovation &amp; efficacité</option><option>Aides &amp; financement</option><option>Autre</option>
+            <label for="topic">What do you need?</label>
+            <select id="topic" name="topic">
+              <option>Energy audit</option><option>On-site solar</option><option>Renovation &amp; efficiency</option><option>Grants &amp; funding</option><option>Other</option>
             </select>
           </div>
-          <div class="field"><label for="message">Message *</label><textarea id="message" name="message" rows="6" required placeholder="Type de site, surface, consommation annuelle, échéance…"></textarea></div>
-          <div class="consent"><input id="rgpd" name="rgpd" type="checkbox" required><label for="rgpd">J'accepte que mes données soient utilisées pour être recontacté·e, conformément à la <a href="mentions-legales.html#confidentialite">politique de confidentialité</a>. *</label></div>
-          <button class="btn" type="submit">Envoyer ma demande</button>
+          <div class="field"><label for="message">Message *</label><textarea id="message" name="message" rows="6" required placeholder="Type of site, floor area, annual consumption, deadline…"></textarea></div>
+          <div class="consent"><input id="gdpr" name="gdpr" type="checkbox" required><label for="gdpr">I agree that my data may be used to contact me, in line with the <a href="legal.html#privacy">privacy policy</a>. *</label></div>
+          <button class="btn" type="submit">Send my request</button>
           <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
         </form>
 
-        <aside class="contact-card" aria-label="Coordonnées">
-          <img src="assets/images/contact-bureaux.svg" alt="Illustration de nos bureaux au bord du Rhône à Lyon" width="768" height="512" loading="lazy">
+        <aside class="contact-card" aria-label="Contact details">
+          <img src="assets/images/contact-office.svg" alt="Illustration of our office by the Rhône river in Lyon" width="768" height="512" loading="lazy">
           <dl>
-            <dt>Adresse</dt><dd>18 quai Perrache, 69002 Lyon <span class="placeholder-note">(adresse fictive)</span></dd>
-            <dt>Téléphone</dt><dd><a href="tel:+33400000000">04 00 00 00 00</a></dd>
-            <dt>E-mail</dt><dd><a href="mailto:contact@verdance.example">contact@verdance.example</a></dd>
-            <dt>Horaires</dt><dd>Du lundi au vendredi, 8 h 30 – 18 h</dd>
-            <dt>Accès</dt><dd><a href="https://www.openstreetmap.org/search?query=Perrache%20Lyon" rel="noopener">Voir sur la carte</a> · Tram T1 / T2, gare de Perrache</dd>
+            <dt>Address</dt><dd>18 quai Perrache, 69002 Lyon, France <span class="placeholder-note">(fictional address)</span></dd>
+            <dt>Phone</dt><dd><a href="tel:+33400000000">+33 4 00 00 00 00</a></dd>
+            <dt>Email</dt><dd><a href="mailto:contact@verdance.example">contact@verdance.example</a></dd>
+            <dt>Opening hours</dt><dd>Monday to Friday, 8:30 am – 6 pm</dd>
+            <dt>Getting here</dt><dd><a href="https://www.openstreetmap.org/search?query=Perrache%20Lyon" rel="noopener">View on the map</a> · Tram T1 / T2, Perrache station</dd>
           </dl>
         </aside>
       </div>
@@ -79,30 +79,30 @@
     <div class="container footer-grid">
       <div>
         <a href="index.html" class="footer-logo"><img src="assets/uploads/logo.svg" alt="Verdance – logo" width="133" height="34" loading="lazy"></a>
-        <p>Conseil en transition énergétique pour les PME et ETI. Audit, solaire, rénovation, financement : un seul interlocuteur, de l'étude aux économies mesurées.</p>
+        <p>Energy-transition consulting for small and mid-sized companies. Audit, solar, renovation, funding: one partner, from the first study to measured savings.</p>
       </div>
       <div>
         <h3>Navigation</h3>
         <ul>
-          <li><a href="services.html">Nos services</a></li>
-          <li><a href="a-propos.html">À propos</a></li>
+          <li><a href="services.html">Our services</a></li>
+          <li><a href="about.html">About us</a></li>
           <li><a href="contact.html">Contact</a></li>
-          <li><a href="mentions-legales.html">Mentions légales &amp; confidentialité</a></li>
+          <li><a href="legal.html">Legal notice &amp; privacy</a></li>
         </ul>
       </div>
       <div>
         <h3>Contact</h3>
         <ul>
-          <li>18 quai Perrache, 69002 Lyon</li>
-          <li><a href="tel:+33400000000">04 00 00 00 00</a></li>
+          <li>18 quai Perrache, 69002 Lyon, France</li>
+          <li><a href="tel:+33400000000">+33 4 00 00 00 00</a></li>
           <li><a href="mailto:contact@verdance.example">contact@verdance.example</a></li>
-          <li>Lun – ven, 8 h 30 – 18 h</li>
+          <li>Mon – Fri, 8:30 am – 6 pm</li>
         </ul>
       </div>
     </div>
     <div class="container footer-bottom">
-      <span>© <span id="year">2026</span> Verdance — entreprise fictive, site de démonstration.</span>
-      <span>Site de démonstration du projet « Atelier » (agent multi-agents).</span>
+      <span>© <span id="year">2026</span> Verdance — fictional company, demo website.</span>
+      <span>Demo website of the “Atelier” multi-agent project.</span>
     </div>
   </footer>
 </body>

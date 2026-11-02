@@ -73,7 +73,7 @@ test("deep agent builds a site with dynamic skills, dynamic tools and a sub-agen
   const events = [];
   const tinyPng =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-  for await (const ev of agent.chat("e2e", "Crée le site vitrine d'une entreprise de panneaux solaires", [{ name: "logo", dataUrl: tinyPng }])) {
+  for await (const ev of agent.chat("e2e", "Create the corporate website of a solar panel company", [{ name: "logo", dataUrl: tinyPng }])) {
     events.push(ev);
   }
   registry.onModuleDestroy();

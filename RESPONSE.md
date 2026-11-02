@@ -179,18 +179,18 @@ API: `POST /api/chat` (SSE: `token`, `tool_call`, `tool_args`, `tool_result`, `u
 
 ## 8. Deliverable — corporate website
 
-**Demo:** *Verdance* (fictional company), an energy-transition consultancy for SMEs in Lyon.
+**Demo:** *Verdance* (fictional company), an energy-transition consultancy for SMEs in Lyon, France. The website is in English.
 Input: [`demo/brief-prompt.md`](demo/brief-prompt.md) (text) + [`demo/inputs/logo.svg`](demo/inputs/logo.svg) (image).
 
 | Page | Content |
 |---|---|
 | `index.html` | Hero with promise and two CTAs, key figures, 4 service cards with images, 4-step method, testimonial (marked fictional), FAQ, CTA band |
 | `services.html` | One section per service (audit, solar, renovation, funding), each with an illustration, benefits and a CTA |
-| `a-propos.html` | Story, values, team |
+| `about.html` | Story, values, team |
 | `contact.html` | Accessible form with GDPR consent, contact card, map link |
-| `mentions-legales.html` | Legal notice, privacy policy (GDPR), cookies; legal identifiers left as `[à compléter]` |
+| `legal.html` | Legal notice, privacy policy (GDPR), cookies; legal identifiers left as `[to complete]` |
 
-Quality: semantic HTML5, `lang="fr"`, skip link, one `h1` per page, alt text on every image, responsive mobile-first CSS with a mobile menu,
+Quality: semantic HTML5, `lang="en"`, skip link, one `h1` per page, alt text on every image, responsive mobile-first CSS with a mobile menu,
 brand palette taken from the logo, WCAG-AA contrast, Open Graph tags, lazy loading. It passes the agent's own `audit_website` tool with
 **0 errors and 0 warnings**.
 
@@ -230,7 +230,7 @@ npm run demo -- --brief ../demo/brief-prompt.md --images ../demo/inputs --out ..
 | Check | What it proves | Status |
 |---|---|---|
 | **End-to-end agent test** (`test/agent-e2e.test.js`) | The real `createDeepAgent` graph runs with the middleware, sub-agents, filesystem backend and streaming. A scripted chat model replaces the LLM, so no API key is needed. Checked: the image upload is saved; the system prompt contains suggested skills but **not** the catalogue; `generate_image` is **not bound before** `load_skill` and **is bound after**; `generate_image` and `write_file` write real files; `task` → **qa-reviewer** sub-agent → `audit_website` reports 0 errors | ✅ CI |
-| Unit tests | frontmatter parsing, retrieval relevance (FR/EN), runtime skill registration, conversation scan, palette contrast ≥ 4.5:1, audit detection | ✅ CI |
+| Unit tests | frontmatter parsing, retrieval relevance, runtime skill registration, conversation scan, palette contrast ≥ 4.5:1, audit detection | ✅ CI |
 | Build | `npm install` + strict TypeScript build against the real `deepagents`, `langchain`, `@langchain/*` and NestJS packages | ✅ CI |
 | Server smoke test | NestJS boots with 1,012 skills; `/api/health`, `/api/skills`, `/api/tools` and the UI respond | ✅ CI |
 | Colab server | `gpu_server.py` compiles, notebook is valid JSON | ✅ CI |
@@ -253,7 +253,7 @@ npm run demo -- --brief ../demo/brief-prompt.md --images ../demo/inputs --out ..
 ```
 .
 ├── RESPONSE.md                     ← this document
-├── README.md                       ← quick start (FR)
+├── README.md                       ← quick start
 ├── multi_agent_multimodal_…md      ← the assignment
 ├── .github/workflows/              ← ci.yml · pages.yml · generate-demo.yml
 ├── backend/                        ← NestJS + deepagents

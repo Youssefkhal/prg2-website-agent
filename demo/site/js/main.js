@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       if (!form.reportValidity()) return;
       const status = document.getElementById("form-status");
-      status.textContent = "Merci ! Votre demande a bien été préparée. (Site de démonstration : aucun message n'est réellement envoyé.)";
+      status.textContent = "Thank you! Your request has been prepared. (Demo website: no message is actually sent.)";
       form.reset();
     });
   }
