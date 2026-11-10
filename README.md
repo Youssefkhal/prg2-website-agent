@@ -4,6 +4,8 @@
 
 **Full answer to the assignment: [RESPONSE.md](RESPONSE.md) · Live demo website: https://youssefkhal.github.io/prg2-website-agent/**
 
+**Testing guide: [TESTING.md](TESTING.md)** — smoke test, API-key setup, Colab images, dynamic skills/tools.
+
 **Agent web interface:** http://localhost:3000 (served by NestJS) · **GitHub Pages UI:** https://youssefkhal.github.io/prg2-website-agent/ui/ (deployed by the Pages workflow — set the **Backend URL** and paste your model API key in **Model settings**)
 
 Solution to `multi_agent_multimodal_collaborative_research_and_development.md`.
