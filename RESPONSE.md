@@ -5,6 +5,8 @@
 **Live website:** https://youssefkhal.github.io/prg2-website-agent/
 **Web interface:** http://localhost:3000 (served by NestJS) · GitHub Pages: https://youssefkhal.github.io/prg2-website-agent/ui/ (deployed by the Pages workflow; set the backend URL and paste your model API key in Model settings)
 
+> **Status:** all requirements are implemented in the repository. The committed Verdance site is a **reference output**; a live run that generates the site from scratch still needs a valid model API key and an active Colab T4. The hosted UI accepts the model key in **Model settings**.
+
 ## Requirement coverage
 
 | Requirement | Implementation | Status |
