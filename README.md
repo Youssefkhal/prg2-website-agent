@@ -4,13 +4,15 @@
 
 **Full answer to the assignment: [RESPONSE.md](RESPONSE.md) · Live demo website: https://youssefkhal.github.io/prg2-website-agent/**
 
+**Agent web interface:** http://localhost:3000 (served by NestJS) · **GitHub Pages UI:** https://youssefkhal.github.io/prg2-website-agent/ui/ (deployed by the Pages workflow — set the **Backend URL** and paste your model API key in **Model settings**)
+
 Solution to `multi_agent_multimodal_collaborative_research_and_development.md`.
 
 | Requirement | Implementation |
 |---|---|
-| LangChain `deepagents`, extended reasoning | `createDeepAgent` (deepagents JS): `write_todos` planning, filesystem, `task` sub-agents, LangGraph checkpointer |
+| LangChain `deepagents`, extended reasoning | `createDeepAgent` (deepagents JS): filesystem, `task` sub-agents, LangGraph checkpointer, recursion limit 400 |
 | TypeScript + NestJS | `backend/`: NestJS 11, TypeScript |
-| Web interface | `backend/public/`: streaming chat (SSE), image attachments, live site preview, files, plan, skills/tools |
+| Web interface | `backend/public/`: streaming chat (SSE), image attachments, live site preview, files, plan, skills/tools, **model/API-key settings** |
 | Skill, tool and sub-agent invocation | `search_skills` / `load_skill`, dynamic tools (`generate_image`, `generate_color_palette`, `audit_website`, HTTP tools), 4 sub-agents: `copywriter`, `image-designer`, `web-developer`, `qa-reviewer` |
 | **Dynamic** registration of tools and skills (1,000 skills → only the useful ones in context) | `DynamicContextMiddleware`: on each model call only ~4 relevant skills (name + one line) are suggested, loaded skills stay, and only the tools they need are bound to the model. Hybrid search: BM25 + embeddings computed on the Colab GPU. Hot add: `skills/…/SKILL.md` folder, `POST /api/skills`, JSON manifest in `tools/` or `POST /api/tools` |
 | Multimodal (images + text input) | Images (logo, photos, moodboard) are sent to the multimodal model and saved in the project so the site can reuse them |
@@ -50,7 +52,7 @@ Without Colab everything still works: images are replaced with placeholder SVGs 
 ```bash
 cd backend
 npm install
-cp .env.example .env        # then set ANTHROPIC_API_KEY (or OPENAI_*) and the 2 COLAB_* lines
+cp .env.example .env        # optional: set keys here, or paste them in the UI
 npm run skills:demo         # optional: adds 1,000 dummy skills to test scaling
 npm run build && npm start  # → http://localhost:3000
 npm test                    # unit tests + end-to-end agent test
@@ -58,9 +60,19 @@ npm test                    # unit tests + end-to-end agent test
 
 On Windows you can simply double-click `backend/run.bat` (install, build, test, start, open the browser).
 
+Open http://localhost:3000, click **⚙ Model**, choose the provider, paste your API key and click **Save & use**. The key is kept in the backend process only. If you prefer `.env`, set `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GOOGLE_API_KEY` there instead.
+
+### 3. GitHub Pages web interface
+`.github/workflows/pages.yml` publishes the static UI at https://youssefkhal.github.io/prg2-website-agent/ui/ next to the demo site. GitHub Pages cannot run Node, so:
+
+1. Start the backend (`npm start`) on the machine that will do the work.
+2. Open the Pages UI, click **⚙ Model**, set **Backend URL** (default `http://localhost:3000`), paste the API key and save.
+3. `CORS_ORIGINS` in `backend/.env` can allow extra frontend origins; `localhost` and the GitHub Pages origin are allowed by default.
+
 ## API
 - `POST /api/chat` `{threadId, message, images:[{name,dataUrl}]}` → SSE stream (`token`, `tool_call`, `tool_args`, `tool_result`, `done`, `error`); every event names the agent (main or sub-agent)
 - `GET /api/health` — model, Colab GPU status, number of skills
+- `GET /api/settings` · `POST /api/settings {provider, model, apiKey, baseUrl?}` · `DELETE /api/settings` — runtime model configuration from the UI (the key is never returned or persisted)
 - `GET /api/skills?q=…` · `POST /api/skills {name, description, body, tags?, tools?}`
 - `GET /api/tools` · `POST /api/tools` (HTTP manifest, see `tools/wikipedia_summary.json`)
 - `GET /api/projects/:id/files` · `GET /api/projects/:id/file?path=` · `GET /api/projects/:id/history`
@@ -78,6 +90,7 @@ tools: [generate_image]     # dynamic tools activated when the skill is loaded
 ```
 
 ## Known limitations
+- The web/API surface is unauthenticated: run the backend locally, or put authentication in front of it before exposing it publicly (this includes `POST /api/settings`).
 - Conversation history is kept in memory (`MemorySaver`): it is lost when the backend restarts, but the site files stay in `workspace/`.
 - SDXL-Turbo cannot write text inside images: the real logo uploaded by the user is reused as is. SDXL-Turbo's licence is non-commercial; for commercial use, change `IMAGE_MODEL_ID` in the notebook.
 - Generated legal pages are templates with fields to complete, to be reviewed by a lawyer.

@@ -3,6 +3,13 @@ const $ = (s) => document.querySelector(s);
 const MAIN = "atelier";
 const AGENT_LABEL = { atelier: "Atelier (main agent)", copywriter: "Sub-agent · copywriter", "image-designer": "Sub-agent · art director (GPU)", "web-developer": "Sub-agent · web developer", "qa-reviewer": "Sub-agent · QA", "general-purpose": "Sub-agent · general purpose", "sub-agent": "Sub-agent" };
 
+/* ------------------------------------------------------------------ backend */
+/* The UI is served by Nest at the same origin, or by GitHub Pages with a separate backend. */
+const GITHUB_PAGES = /\.github\.io$/i.test(location.hostname);
+const queryApi = new URLSearchParams(location.search).get("api");
+let apiBase = queryApi || localStorage.getItem("atelier.apiBase") || (GITHUB_PAGES ? "http://localhost:3000" : "");
+const apiUrl = (p) => (apiBase ? apiBase.replace(/\/+$/, "") + p : p);
+
 /* ---------------------------------------------------------------- projects */
 const projects = JSON.parse(localStorage.getItem("atelier.projects") || "[]");
 let threadId = localStorage.getItem("atelier.current");
@@ -47,7 +54,7 @@ function md(src) {
     .join("");
 }
 const isSub = (agent) => agent !== MAIN;
-const projectUrl = (p) => `/projects/${threadId}${p}`;
+const projectUrl = (p) => apiUrl(`/projects/${threadId}${p}`);
 
 /* --------------------------------------------------------------- rendering */
 const box = $("#messages");
@@ -215,7 +222,7 @@ composer.addEventListener("submit", async (e) => {
   pendingTools = {};
   byIndex = {};
   try {
-    const res = await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ threadId, message: text, images }) });
+    const res = await fetch(apiUrl("/api/chat"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ threadId, message: text, images }) });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
     const reader = res.body.getReader();
     const dec = new TextDecoder();
@@ -265,7 +272,7 @@ function refreshSoon() {
   refreshTimer = setTimeout(refresh, 600);
 }
 async function refresh() {
-  const files = await (await fetch(`/api/projects/${threadId}/files`)).json();
+  const files = await (await fetch(apiUrl(`/api/projects/${threadId}/files`))).json();
   $("#file-list").innerHTML = files.map((f) => `<li data-p="${esc(f.path)}">${esc(f.path)} <span>${(f.size / 1024).toFixed(1)} KB</span></li>`).join("") || `<li class="empty">No files</li>`;
   const pages = files.filter((f) => f.path.startsWith("/site/") && f.path.endsWith(".html")).map((f) => f.path);
   const sel = $("#page-select");
@@ -294,7 +301,7 @@ $("#file-list").addEventListener("click", async (e) => {
     view.innerHTML = `<img src="${projectUrl(p)}" alt="">`;
     return;
   }
-  const r = await (await fetch(`/api/projects/${threadId}/file?path=${encodeURIComponent(p)}`)).json();
+  const r = await (await fetch(apiUrl(`/api/projects/${threadId}/file?path=${encodeURIComponent(p)}`))).json();
   view.textContent = r.content;
 });
 document.querySelectorAll(".tabs button").forEach((b) =>
@@ -308,20 +315,20 @@ document.querySelectorAll(".tabs button").forEach((b) =>
 /* ---------------------------------------------------------- skills / tools */
 $("#skill-search").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const r = await (await fetch(`/api/skills?q=${encodeURIComponent($("#skill-q").value)}&k=12`)).json();
+  const r = await (await fetch(apiUrl(`/api/skills?q=${encodeURIComponent($("#skill-q").value)}&k=12`))).json();
   $("#skill-results").innerHTML = r.items.map((s) => `<li><b>${esc(s.name)}</b> ${s.score != null ? `<span class="pill">${s.score}</span>` : ""}<small>${esc(s.description)}</small>${s.tools.length ? `<small>tools: ${esc(s.tools.join(", "))}</small>` : ""}</li>`).join("") || "<li>No results</li>";
 });
 $("#skill-register").addEventListener("submit", async (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
   const list = (k) => String(f.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
-  const res = await fetch("/api/skills", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: f.get("name"), description: f.get("description"), body: f.get("body"), tags: list("tags"), tools: list("tools") }) });
+  const res = await fetch(apiUrl("/api/skills"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: f.get("name"), description: f.get("description"), body: f.get("body"), tags: list("tags"), tools: list("tools") }) });
   const j = await res.json();
   alert(res.ok ? `Skill "${j.registered.name}" registered (${j.total} skills).` : j.message);
   if (res.ok) e.target.reset(), health();
 });
 async function loadTools() {
-  const tools = await (await fetch("/api/tools")).json();
+  const tools = await (await fetch(apiUrl("/api/tools"))).json();
   $("#tool-list").innerHTML = tools.map((t) => `<li><b>${esc(t.name)}</b> <span class="pill">${t.source}</span><small>${esc(t.description)}</small></li>`).join("");
 }
 $("#tool-register").addEventListener("submit", async (e) => {
@@ -332,7 +339,7 @@ $("#tool-register").addEventListener("submit", async (e) => {
   } catch {
     return alert("Invalid JSON");
   }
-  const res = await fetch("/api/tools", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(manifest) });
+  const res = await fetch(apiUrl("/api/tools"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(manifest) });
   const j = await res.json();
   alert(res.ok ? `Tool "${j.registered.name}" registered.` : j.message);
   if (res.ok) loadTools();
@@ -341,22 +348,138 @@ $("#tool-register").addEventListener("submit", async (e) => {
 /* ------------------------------------------------------------------ status */
 async function health() {
   try {
-    const h = await (await fetch("/api/health")).json();
+    const h = await (await fetch(apiUrl("/api/health"))).json();
     const g = $("#gpu-pill");
     g.textContent = h.gpu.ok ? `Colab GPU: ${h.gpu.gpu || h.gpu.device}` : "Colab GPU: offline (placeholder images)";
     g.className = "pill " + (h.gpu.ok ? "ok" : "bad");
     g.title = JSON.stringify(h.gpu);
-    $("#model-pill").textContent = h.model;
+    const info = h.modelInfo || {};
+    $("#model-pill").textContent = info.configured ? `${info.provider}:${info.model}` : "model: not configured";
+    $("#model-pill").className = "pill " + (info.configured ? "ok" : "bad");
+    $("#model-pill").title = info.configured ? "Click Model to change the provider or key" : "Click Model to paste an API key";
+    $("#setup-banner").hidden = !!info.configured;
     $("#skills-pill").textContent = `${h.skills.count} skills · ${h.skills.semanticIndex ? "GPU semantic index" : "BM25"}`;
   } catch {
     $("#gpu-pill").textContent = "backend unreachable";
+    $("#gpu-pill").className = "pill bad";
+    $("#model-pill").textContent = "backend offline";
+    $("#model-pill").className = "pill bad";
+    $("#setup-banner").hidden = false;
   }
 }
+
+/* ---------------------------------------------------------- model settings */
+const PROVIDER_DEFAULTS = { anthropic: "claude-sonnet-4-6", openai: "gpt-4.1", "google-genai": "gemini-2.5-flash" };
+const settingsDialog = $("#settings-dialog");
+const settingsStatus = (text, kind = "") => {
+  const el = $("#settings-status");
+  el.textContent = text;
+  el.className = "settings-status" + (kind ? " " + kind : "");
+};
+
+function savedSettings() {
+  try {
+    return JSON.parse(localStorage.getItem("atelier.settings") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function initSettingsForm() {
+  const s = savedSettings();
+  const provider = s.provider || "anthropic";
+  $("#provider").value = provider;
+  $("#model-name").value = s.model || PROVIDER_DEFAULTS[provider];
+  $("#model-base-url").value = s.baseUrl || "";
+  $("#backend-url").value = apiBase || location.origin;
+  $("#base-url-row").hidden = provider !== "openai";
+}
+
+async function openSettings() {
+  initSettingsForm();
+  $("#api-key").value = "";
+  settingsStatus("");
+  settingsDialog.showModal();
+  try {
+    const r = await fetch(apiUrl("/api/settings"));
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const s = await r.json();
+    if (s.configured) {
+      $("#provider").value = s.provider || $("#provider").value;
+      $("#model-name").value = s.model || $("#model-name").value;
+      $("#backend-url").value = apiBase || location.origin;
+      $("#base-url-row").hidden = $("#provider").value !== "openai";
+      settingsStatus(`Configured: ${s.provider}:${s.model}`, "ok");
+    } else {
+      settingsStatus("No model configured yet. Paste an API key below.");
+    }
+  } catch {
+    settingsStatus("Backend unreachable. Check the Backend URL and start the NestJS server.", "err");
+  }
+}
+
+$("#settings-btn").addEventListener("click", openSettings);
+$("#setup-open").addEventListener("click", openSettings);
+$("#settings-close").addEventListener("click", () => settingsDialog.close());
+settingsDialog.addEventListener("close", () => {
+  $("#api-key").value = "";
+});
+$("#provider").addEventListener("change", (e) => {
+  const provider = e.target.value;
+  $("#base-url-row").hidden = provider !== "openai";
+  const current = $("#model-name").value.trim();
+  const knownDefaults = Object.values(PROVIDER_DEFAULTS);
+  if (!current || knownDefaults.includes(current)) $("#model-name").value = PROVIDER_DEFAULTS[provider];
+});
+$("#settings-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const base = $("#backend-url").value.trim().replace(/\/+$/, "");
+  if (base && !/^https?:\/\//i.test(base)) return settingsStatus("Backend URL must start with http:// or https://", "err");
+  const payload = {
+    provider: $("#provider").value,
+    model: $("#model-name").value.trim(),
+    apiKey: $("#api-key").value.trim(),
+    baseUrl: $("#provider").value === "openai" ? $("#model-base-url").value.trim() || undefined : undefined,
+  };
+  if (!payload.model) return settingsStatus("Model name is required.", "err");
+  if (!payload.apiKey) return settingsStatus("API key is required.", "err");
+  settingsStatus("Applying…");
+  try {
+    const res = await fetch(apiUrl("/api/settings"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.message || `HTTP ${res.status}`);
+    apiBase = base && base !== location.origin ? base : "";
+    localStorage.setItem("atelier.apiBase", apiBase);
+    localStorage.setItem("atelier.settings", JSON.stringify({ provider: payload.provider, model: payload.model, baseUrl: payload.baseUrl || "" }));
+    $("#api-key").value = "";
+    settingsStatus(`Using ${j.provider}:${j.model}`, "ok");
+    await health();
+    await loadTools();
+    setTimeout(() => settingsDialog.close(), 700);
+  } catch (err) {
+    settingsStatus(String(err.message || err), "err");
+  }
+});
+$("#settings-clear").addEventListener("click", async () => {
+  settingsStatus("Clearing…");
+  try {
+    await fetch(apiUrl("/api/settings"), { method: "DELETE" });
+    $("#api-key").value = "";
+    settingsStatus("Key cleared. The backend will use the .env model on the next request.", "ok");
+    await health();
+  } catch (err) {
+    settingsStatus(String(err.message || err), "err");
+  }
+});
 async function loadHistory() {
   box.innerHTML = "";
   bubble = null;
   try {
-    const hist = await (await fetch(`/api/projects/${threadId}/history`)).json();
+    const hist = await (await fetch(apiUrl(`/api/projects/${threadId}/history`))).json();
     for (const m of hist) m.role === "user" ? addUser(m.text) : addAssistant(MAIN, m.text);
     if (!hist.length) box.innerHTML = `<div class="welcome"><h2>New project</h2><p>Describe the company and attach a logo / photos.</p></div>`;
   } catch {}
@@ -373,6 +496,7 @@ $("#project-select").addEventListener("change", (e) => {
   loadHistory();
 });
 
+initSettingsForm();
 health();
 loadTools();
 setInterval(health, 30000);

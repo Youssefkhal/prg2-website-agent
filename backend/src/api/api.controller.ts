@@ -1,8 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Post, Query, Res } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Inject, NotFoundException, Param, Post, Query, Res } from "@nestjs/common";
 import type { Response } from "express";
 import { AgentService, type ImageInput } from "../agent/agent.service";
+import type { RuntimeModelSettings } from "../agent/model-factory";
 import { config } from "../config";
 import { colab } from "../gpu/colab-client";
 import { RegistryService } from "../registry/registry.service";
@@ -23,13 +24,37 @@ export class ApiController {
 
   @Get("health")
   async health() {
+    const modelInfo = this.agent.modelInfo();
     return {
-      model: config.model,
-      subagentModel: config.subagentModel ?? config.model,
+      model: modelInfo.label,
+      modelInfo,
+      subagentModel: config.subagentModel ?? modelInfo.label,
       gpu: await colab.health(),
       skills: { count: this.registry.skills.size, semanticIndex: this.registry.skills.semantic },
       tools: this.registry.tools.list().map((t) => t.name),
     };
+  }
+
+  /** Current model configuration (never returns the API key). */
+  @Get("settings")
+  settings() {
+    return this.agent.modelInfo();
+  }
+
+  /** Apply an API key and model chosen in the web interface; the key stays in this process's memory. */
+  @Post("settings")
+  setSettings(@Body() body: RuntimeModelSettings) {
+    try {
+      return { ok: true, ...this.agent.configureModel(body) };
+    } catch (e: any) {
+      throw new BadRequestException(e?.message ?? "invalid model settings");
+    }
+  }
+
+  /** Forget the UI-supplied key and go back to the .env configuration. */
+  @Delete("settings")
+  clearSettings() {
+    return { ok: true, ...this.agent.clearModel() };
   }
 
   /** Streams agent events as Server-Sent Events. */

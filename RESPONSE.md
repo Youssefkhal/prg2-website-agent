@@ -1,274 +1,174 @@
 # Response — Multi-Agent / Multi-Modal Collaborative Research and Development
 
-**Project:** *Atelier*, a deep agent that designs and builds corporate websites (text + generated images) from a brief and reference images.
+**Project:** *Atelier* — a LangChain `deepagents` agent that builds a corporate website, text and images together, from a brief and reference images.
+**Repository:** https://github.com/Youssefkhal/prg2-website-agent
+**Live website:** https://youssefkhal.github.io/prg2-website-agent/
+**Web interface:** http://localhost:3000 (served by NestJS) · GitHub Pages: https://youssefkhal.github.io/prg2-website-agent/ui/ (deployed by the Pages workflow; set the backend URL and paste your model API key in Model settings)
 
-- **Repository:** https://github.com/Youssefkhal/prg2-website-agent
-- **Demo website (GitHub Pages):** https://youssefkhal.github.io/prg2-website-agent/
-- **Assignment:** [`multi_agent_multimodal_collaborative_research_and_development.md`](multi_agent_multimodal_collaborative_research_and_development.md)
+## Requirement coverage
 
----
-
-## 1. Summary
-
-Atelier is a **LangChain `deepagents`** agent served by a **NestJS (TypeScript)** backend with a **web interface**.
-The user describes a company and can attach images (logo, photos, moodboard). The main agent analyses the images, plans
-the work, and delegates to four specialised **sub-agents** (copywriter, image designer, web developer, QA reviewer). Together
-they produce a complete static corporate website with its copy and its images.
-
-Two design points answer the hardest parts of the assignment:
-
-1. **Dynamic skills and tools.** The skill library can hold thousands of skills, but **none is placed in the model context by default**.
-   On each model call, a middleware retrieves the few skills relevant to the current request. The agent loads more on demand, and tools are
-   bound to the model only when a loaded skill (or the agent itself) asks for them. Skills and tools can be added **at runtime**
-   without a restart.
-2. **GPU work on a Colab T4.** Text-to-image generation (SDXL-Turbo) and semantic embeddings for skill retrieval run on a
-   FastAPI server inside a Google Colab T4 notebook. A Cloudflare tunnel exposes it to the backend.
+| Requirement | Implementation | Status |
+|---|---|---|
+| LangChain `deepagents` for extended reasoning | `createDeepAgent` graph with virtual filesystem, sub-agents, checkpointer and recursion limit 400 | Implemented |
+| TypeScript, NestJS | NestJS 11 + TypeScript 5.9 backend | Implemented |
+| Python only as FastAPI | FastAPI GPU server for image generation and embeddings | Implemented |
+| Web interface | Streaming chat, image attachments, live preview, files, skills/tools and model/API-key settings | Implemented |
+| Skill, tool and sub-agent invocation | `search_skills` / `load_skill`, built-in and HTTP tools, four `task` sub-agents | Implemented |
+| Dynamic registration of tools and skills; only needed skills in context | Per-call retrieval, progressive loading, lazy tool binding, hot registration | Implemented |
+| Multimodal images + text | Image uploads saved to the project and sent as image blocks to a multimodal model | Implemented |
+| Corporate website with text + images | Brief → copy → generated images → static site | Implemented; reference site included |
 
 ---
 
-## 2. Requirements → implementation
+## 1. LangChain `deepagents` for extended reasoning
 
-| # | Requirement | Implementation | Where |
-|---|---|---|---|
-| 1 | Use LangChain `deepagents` for extended reasoning | `createDeepAgent()` (deepagents JS ≥ 1.16): planning with `write_todos`, virtual filesystem, `task` sub-agent delegation, LangGraph checkpointer for multi-turn memory, recursion limit 400 for long tasks | `backend/src/agent/agent.service.ts` |
-| 2 | Prefer TypeScript → NestJS | The entire backend is TypeScript / NestJS 11 | `backend/src/` |
-| 3 | If Python → FastAPI | The only Python component (GPU server) is FastAPI | `colab/gpu_server.py` |
-| 4 | Web interface | Chat with SSE streaming, image attach (button, drag & drop, paste), live site preview, file browser, plan (todos) and sub-agent activity, skill search, runtime skill/tool registration | `backend/public/` |
-| 5 | Skill, tool and sub-agent invocation | `search_skills` / `load_skill`; tools `generate_image`, `generate_color_palette`, `audit_website`, HTTP tools; 4 sub-agents through `task` | `dynamic-context.middleware.ts`, `tool-registry.ts`, `agent.service.ts` |
-| 6 | Dynamic registration of tools and skills (only needed skills in context) | `DynamicContextMiddleware`: per-call retrieval (BM25 + GPU embeddings), progressive loading, tools bound only when needed, hot reload, `POST /api/skills`, `POST /api/tools` | `backend/src/agent/`, `backend/src/skills/`, `backend/src/tools/` |
-| 7 | Multimodal: images and text as input | Images are sent as `image_url` content blocks to a multimodal model and saved in the project (`/site/assets/uploads/`) so the site can use them | `agent.service.ts`, `public/app.js` |
-| D | Deliverable: create a corporate website with images and text together | 4 sub-agents produce `/brief.md` → `/content/*.md` → `/site/*.html` + CSS/JS + images generated on the Colab T4; QA audit loop. Demo: Verdance site | `demo/`, GitHub Pages |
-| + | All GPU computation on Colab T4 | Image generation + embeddings in `gpu_server.ipynb`; the backend never needs a local GPU | `colab/` |
+The agent is built with `createDeepAgent()` and the `atelier` identity ([`agent.service.ts#L61-L105`](backend/src/agent/agent.service.ts#L61-L105)):
 
----
-
-## 3. Architecture
-
-```mermaid
-flowchart LR
-  U[Browser<br/>web interface] -- "POST /api/chat (text + images)<br/>SSE events" --> C[NestJS ApiController]
-  C --> A[AgentService<br/>createDeepAgent 'atelier']
-  A -- middleware --> M[DynamicContextMiddleware]
-  M --> SR[(SkillRegistry<br/>skills/**/SKILL.md<br/>BM25 + embeddings)]
-  M --> TR[(ToolRegistry<br/>built-in + HTTP manifests)]
-  A -- task --> S1[copywriter]
-  A -- task --> S2[image-designer]
-  A -- task --> S3[web-developer]
-  A -- task --> S4[qa-reviewer]
-  A & S1 & S2 & S3 & S4 -- FilesystemBackend --> W[(workspace/&lt;project&gt;/<br/>brief.md · content/ · site/)]
-  S2 -- generate_image --> G
-  SR -- embed --> G
-  subgraph Colab[Google Colab · T4 GPU]
-    G[FastAPI<br/>/generate SDXL-Turbo fp16<br/>/embed multilingual-e5-small]
-  end
-  U -- "/projects/&lt;id&gt;/site/" --> W
+```ts
+this.agent = createDeepAgent({
+  name: "atelier",
+  systemPrompt: MAIN_SYSTEM_PROMPT,
+  tools: [],
+  middleware: mw,
+  checkpointer: this.checkpointer,
+  backend: () => new FilesystemBackend({
+    rootDir: currentContext().projectDir,
+    virtualMode: true,
+  }),
+  subagents: [copywriter, "image-designer", "web-developer", "qa-reviewer"],
+});
 ```
 
-### 3.1 Agents
+The long-horizon capabilities come from deepagents itself:
 
-| Agent | Role | Specific tools |
+- **Delegation.** Four specialised sub-agents are invoked through the `task` tool; they run in isolated contexts and share work through the virtual filesystem.
+- **Filesystem.** The agent can list, read, write, edit, delete, glob and grep files inside the project, so it can produce `/brief.md`, `/content/*.md` and `/site/*`.
+- **Memory.** A LangGraph checkpointer (`MemorySaver`) keeps the conversation state across turns.
+- **Long tasks.** `recursionLimit: 400` allows the agent to keep working through planning, delegation and build steps ([`agent.service.ts#L153-L156`](backend/src/agent/agent.service.ts#L153-L156)).
+
+The main prompt defines the workflow: analyse the brief and images → write `/brief.md` → load skills → delegate copy, images and build → verify ([`prompts.ts#L1-L30`](backend/src/agent/prompts.ts#L1-L30)).
+
+## 2. TypeScript with NestJS
+
+The backend is entirely TypeScript:
+
+- NestJS 11 (`@nestjs/common`, `@nestjs/core`, `@nestjs/platform-express`).
+- TypeScript 5.9 with `strict: true` ([`tsconfig.json`](backend/tsconfig.json)).
+- `AppModule`, `ApiController`, `AgentService` and `RegistryService` are Nest providers/controllers ([`main.ts`](backend/src/main.ts)).
+- No second backend framework and no Python in the request path.
+
+The web front end is plain HTML/CSS/JS served by Nest as static assets; the application framework is NestJS.
+
+## 3. Python only as FastAPI
+
+Python is used only for the GPU work. [`colab/gpu_server.py`](colab/gpu_server.py) is a FastAPI app with:
+
+- `POST /generate` — SDXL-Turbo fp16 text-to-image;
+- `POST /embed` — multilingual-e5-small embeddings for skill retrieval;
+- `GET /health` — device, GPU name and loaded models.
+
+The same server is started from `colab/gpu_server.ipynb` and exposed through a Cloudflare quick tunnel. The NestJS backend calls it over HTTP.
+
+## 4. Web interface
+
+[`backend/public/index.html`](backend/public/index.html) and [`app.js`](backend/public/app.js) provide:
+
+- streaming chat over SSE (`token`, `tool_call`, `tool_args`, `tool_result`, `uploads`, `done`, `error`);
+- image attachments by button, drag & drop and paste, with client-side downscaling;
+- a live iframe preview of `/projects/<id>/site/...` with a page selector;
+- a file browser/viewer for the brief, content, site and images;
+- a plan panel and sub-agent activity;
+- skill search, a skill registration form and an HTTP-tool registration form;
+- **Model settings**: provider, model, backend URL and API key; the key is applied at runtime through `POST /api/settings` and kept in the backend process only.
+
+The UI is served by Nest at `http://localhost:3000`, and a static copy is published at https://youssefkhal.github.io/prg2-website-agent/ui/. Because GitHub Pages cannot run Node, the Pages copy points at a separately running NestJS backend; the backend URL is configurable in Model settings (default `http://localhost:3000`).
+
+The NestJS side serves the UI and the generated projects statically ([`main.ts#L34-L35`](backend/src/main.ts#L34-L35)). The REST surface is in [`api.controller.ts`](backend/src/api/api.controller.ts): `POST /api/chat`, `GET /api/health`, `GET|POST|DELETE /api/settings`, `GET|POST /api/skills`, `GET|POST /api/tools`, `GET /api/projects/:id/{files,file,history}`.
+
+## 5. Skill, tool and sub-agent invocation
+
+**Skill invocation.** The agent has `search_skills(query)` and `load_skill(name[, file])` ([`dynamic-context.middleware.ts#L41-L87`](backend/src/agent/dynamic-context.middleware.ts#L41-L87)). A skill is a folder with a `SKILL.md` in Agent-Skills format (YAML frontmatter + markdown). Twelve core skills ship in [`backend/skills/core/`](backend/skills/core/) for website architecture, copywriting, SDXL prompting, brand extraction, accessibility, SEO, legal pages, responsive layout, performance, forms, conversion and multilingual sites.
+
+**Tool invocation.** Built-in tools ([`tool-registry.ts#L42-L105`](backend/src/tools/tool-registry.ts#L42-L105)):
+
+- `generate_image` — calls the Colab T4 and saves a PNG; writes an SVG placeholder when no GPU is configured.
+- `generate_color_palette` — builds an accessible palette from a brand colour or mood.
+
+HTTP tools are declared as JSON manifests and executed by `httpToolFromManifest` ([`tool-registry.ts#L109-L136`](backend/src/tools/tool-registry.ts#L109-L136)).
+
+**Sub-agent invocation.** Specialist sub-agents are declared in `createDeepAgent` and called through the `task` tool ([`agent.service.ts#L70-L104`](backend/src/agent/agent.service.ts#L70-L104)):
+
+| Agent | Responsibility | Specific tools |
 |---|---|---|
-| **atelier** (main) | Reads the brief and the images (brand colours, style), writes `/brief.md`, plans with `write_todos`, delegates, verifies, reports | dynamic tools, `task` |
-| **copywriter** | All page copy (titles ≤ 60 chars, meta descriptions, headings, CTAs, alt texts) → `/content/*.md` | skills (copywriting, SEO) |
-| **image-designer** | Art direction + English SDXL prompts, sizes and consistent style → `generate_image` on the Colab T4 → `/site/assets/images/` | `generate_image` |
-| **web-developer** | Semantic, responsive, accessible static site in `/site` from the brief, copy and images | `generate_color_palette` (via skill) |
-| **qa-reviewer** | Runs `audit_website`, fixes every error (broken links, alt, meta, h1…), re-audits | `audit_website` |
+| `copywriter` | Titles, meta descriptions, headings, body, CTAs and alt texts → `/content/*.md` | skills via middleware |
+| `image-designer` | Art direction, English SDXL prompts, sizes and consistent style → `/site/assets/images/` | `generate_image` |
+| `web-developer` | Semantic, responsive, accessible static site in `/site` | `generate_color_palette` via skill |
 
-Sub-agents run in **isolated contexts** (deepagents' `task` tool). They cannot see the user's images, so the main agent writes its visual
-analysis into `/brief.md`. This shared file is how they collaborate.
+## 6. Dynamic registration of tools and skills
 
-### 3.2 Models
+With 1,000 local skills, the context should contain only the skills needed for the current request. That is implemented by `DynamicContextMiddleware` ([`dynamic-context.middleware.ts`](backend/src/agent/dynamic-context.middleware.ts)).
 
-| Purpose | Default model | Runs on |
-|---|---|---|
-| Reasoning, vision, writing and code (all agents) | `anthropic:claude-sonnet-4-6`, configurable with `MODEL` (any multimodal, tool-calling LangChain model, e.g. `openai:gpt-4.1`); optional cheaper `SUBAGENT_MODEL` | Provider API |
-| Text-to-image | `stabilityai/sdxl-turbo` (fp16, with the fp16-fixed VAE), 1–4 steps | **Colab T4** |
-| Skill retrieval embeddings | `intfloat/multilingual-e5-small` (French + English) | **Colab T4** |
+### On every model call
 
----
+1. **Retrieve.** The latest user message is searched against the skill index. Only the top `AUTO_SUGGEST_SKILLS` (default 4) are injected, as `name: description`.
+2. **Load on demand.** The agent calls `load_skill(name)` for the full `SKILL.md`, or `load_skill(name, file)` for a resource. Anything else goes through `search_skills(query)`.
+3. **Derive state from the conversation.** Loaded skills and enabled tools are recovered by scanning the message history for `load_skill` and `enable_tools` tool calls ([`conversation-scan.ts`](backend/src/agent/conversation-scan.ts)).
+4. **Bind tools lazily.** A skill declares its tools in its frontmatter (`tools: [...]`). Those tools — plus anything enabled with `search_tools` → `enable_tools` — are added to `request.tools` for that call only. No other tool schema enters the model context.
+5. **Execute dynamic tools.** `wrapToolCall` supplies the implementation for tools that were not registered when the agent was created ([`dynamic-context.middleware.ts#L150-L156`](backend/src/agent/dynamic-context.middleware.ts#L150-L156)), so tools registered at runtime work without rebuilding the agent.
 
-## 4. Dynamic registration of skills and tools
+### Measured scale
 
-### 4.1 The problem
-With 1,000 local skills, putting even their names and descriptions in the system prompt costs tens of thousands of tokens on every
-call and dilutes the model's attention. deepagents' built-in skills middleware lists every skill, so Atelier uses its own retrieval layer
-built on LangChain's documented middleware hooks (`wrapModelCall` / `wrapToolCall`).
-
-### 4.2 How it works (`DynamicContextMiddleware`)
-On **every model call** (main agent and each sub-agent):
-
-1. **Retrieve.** The latest user request is matched against the skill index. Only the top 4 skills (name + one line) are injected,
-   under "Suggested for the current request".
-2. **Load on demand.** The agent calls `load_skill(name)` to read the full `SKILL.md`, or `load_skill(name, file)` for one of the skill's resources.
-   For anything else it calls `search_skills(query)`.
-3. **Derive state from the conversation.** Loaded skills and enabled tools are read from the message history (the `load_skill` /
-   `enable_tools` tool calls). The state therefore survives checkpoints and disappears if the conversation is compacted.
-4. **Bind tools lazily.** A skill declares the tools it needs (`tools: [generate_image]` in its frontmatter). Those tools, plus any enabled
-   with `search_tools` → `enable_tools`, are added to `request.tools` for that call only. The model never sees other tool schemas.
-5. **Execute dynamic tools.** `wrapToolCall` supplies the implementation of tools that were not registered when the agent was created.
-   This is LangChain's documented pattern for dynamically registered tools, so tools added at runtime work **without rebuilding the agent**.
+With the 12 core skills plus 1,000 generated skills, one middleware call produced:
 
 ```
-System prompt addition (example, 1,012 skills installed):
-## Skills & dynamic tools
-A library of 1012 skills exists but is NOT listed here. Use search_skills / load_skill.
+SKILLS 1012   SEMANTIC false   MIDDLEWARE_MS 4
+PROMPT_ADDITION 1051 characters
 Suggested for the current request:
-- corporate-website-architecture: Plan the sitemap, page structure and user journeys…
-- image-prompting-sdxl: Write effective prompts for SDXL / SDXL-Turbo…
-- brand-copywriting: …   - logo-and-brand-extraction: …
-Already loaded in this conversation: corporate-website-architecture
-Dynamic tools currently bound: generate_image. Others (4 total) can be found with search_tools…
+- corporate-website-architecture
+- legal-pages-eu
+- seo-on-page
+- image-prompting-sdxl
+Dynamic tools currently bound: none.
 ```
 
-### 4.3 Retrieval
-- **BM25** (CPU, dependency-free, French/English normalisation and light stemming) is always available. Search over 1,012 skills takes a few milliseconds.
-- **Semantic.** Skill embeddings are computed **on the Colab T4** in batches and cached on disk (`.cache/skill-embeddings.json`, keyed by content hash).
-  Queries are embedded on the GPU and cached. Final score = 0.5 × normalised BM25 + 0.5 × cosine. If Colab is offline, search falls back to BM25 alone.
+None of the 1,000 generated skill names appeared in the prompt; only the four suggestions did. BM25 search over 1,012 skills took about 1 ms. The middleware binds `generate_image` only after `load_skill(image-prompting-sdxl)`.
 
-### 4.4 Runtime registration
+### Runtime registration
 
-| What | How |
-|---|---|
-| New skill | Drop a folder with `SKILL.md` under `backend/skills/` (file watcher, re-indexed in ~0.5 s), or `POST /api/skills`, or the form in the UI |
-| New tool | Drop a JSON manifest in `backend/tools/` (HTTP tool: URL template, method, JSON-Schema parameters), or `POST /api/tools`, or the form in the UI. Example: `tools/wikipedia_summary.json` |
-| Scale test | `npm run skills:demo` generates 1,000 extra skills; context size per call stays the same |
+- **Skills:** drop a folder with `SKILL.md` under `backend/skills/` (the registry watches the directory and re-indexes after about 500 ms), or call `POST /api/skills`.
+- **Tools:** call `POST /api/tools` with a JSON manifest; the tool is added to the registry immediately and becomes available through `search_tools` / `enable_tools`. Manifests in `backend/tools/` are loaded at startup.
+- **Scale test:** `npm run skills:demo` generates 1,000 synthetic skills in `backend/skills/generated/`.
 
----
+### Retrieval
 
-## 5. Multimodal input
+BM25 is dependency-free, with French/English normalisation and light stemming. When the GPU server is configured, skill embeddings are computed on the T4 in batches and cached on disk; queries are embedded and cached. The final score is 0.5 × normalised BM25 + 0.5 × cosine, with a BM25-only fallback when the GPU server is offline.
 
-- The UI accepts images through the attach button, drag & drop or paste. They are downscaled client-side to ≤ 1568 px (PNG kept for logo transparency).
-- The backend stores each image in the project (`/site/assets/uploads/<name>.<ext>`) and sends the message as
-  `[{type:"text"}, {type:"image_url", image_url:{url:"data:…"}}…]` to the multimodal model, together with the saved paths.
-- The main agent extracts brand colours (hex), typography cues and mood, records them in `/brief.md`, calls
-  `generate_color_palette` for an accessible palette, and reuses the real logo in the header and footer. The image model is never asked to draw logos or text.
+## 7. Multimodal support: images and text
 
----
+- The UI accepts images through the attach button, drag & drop and paste, and downscales them client-side to ≤ 1568 px ([`public/app.js#L144-L171`](backend/public/app.js#L144-L171)).
+- The backend saves each upload under `/site/assets/uploads/<name>.<ext>` and sends the message as one text block plus one `image_url` block per image ([`agent.service.ts#L145-L155`](backend/src/agent/agent.service.ts#L145-L155)).
+- The main agent analyses the images (brand colours, style, mood, typography), writes the analysis into `/brief.md`, builds an accessible palette and reuses the uploaded logo in the site.
+- The default model is multimodal; `MODEL` can be any multimodal, tool-calling LangChain model (Anthropic, OpenAI or Gemini).
 
-## 6. GPU on Google Colab (T4)
+## 8. Deliverable: corporate website with text and images
 
-`colab/gpu_server.ipynb` (the same code is in `gpu_server.py`):
-
-| Endpoint | Model | Details |
-|---|---|---|
-| `POST /generate` | SDXL-Turbo fp16 + `madebyollin/sdxl-vae-fp16-fix` | sizes snapped to multiples of 64 (256–1024), 4 steps, guidance 0, seed returned; a few seconds per image on a T4 (more on the first call, while the model loads) |
-| `POST /embed` | multilingual-e5-small (fp16) | `query:` / `passage:` prefixes, normalised vectors, batch 64 |
-| `GET /health` | — | device, GPU name, VRAM, loaded models |
-
-- One GPU lock serialises jobs so the 16 GB T4 never runs two at once. Calls are authenticated with an `x-api-key` token generated at start-up.
-- A **Cloudflare quick tunnel** (no account needed) publishes the server. The notebook prints `COLAB_GPU_URL` and `COLAB_GPU_TOKEN` for `backend/.env`.
-- **Graceful degradation.** Without Colab, `generate_image` writes labelled SVG placeholders and skill search uses BM25 only, so the pipeline never blocks.
-
----
-
-## 7. Web interface
-
-| Area | Content |
-|---|---|
-| Top bar | Colab GPU status (GPU name or offline), model, number of skills and index type, project switcher, new project |
-| Chat | Streaming tokens; each bubble is labelled with the agent that wrote it (main or sub-agent, indented). Tool calls appear as collapsible cards with arguments and results. Generated images get a thumbnail. |
-| Preview | Live iframe of `/site/*.html` with a page selector, refreshed when files change; "Open ↗" opens it in a new tab |
-| Files | Every project file (brief, content, site, images), with a viewer |
-| Plan | The agent's `write_todos` list (pending / in progress / done) and a sub-agent activity log |
-| Skills & tools | Hybrid skill search with scores, register a skill, list and register HTTP tools |
-
-API: `POST /api/chat` (SSE: `token`, `tool_call`, `tool_args`, `tool_result`, `uploads`, `done`, `error`), `GET /api/health`,
-`GET|POST /api/skills`, `GET|POST /api/tools`, `GET /api/projects/:id/{files,file,history}`, static preview at `/projects/:id/site/`.
-
----
-
-## 8. Deliverable — corporate website
-
-**Demo:** *Verdance* (fictional company), an energy-transition consultancy for SMEs in Lyon, France. The website is in English.
-Input: [`demo/brief-prompt.md`](demo/brief-prompt.md) (text) + [`demo/inputs/logo.svg`](demo/inputs/logo.svg) (image).
-
-| Page | Content |
-|---|---|
-| `index.html` | Hero with promise and two CTAs, key figures, 4 service cards with images, 4-step method, testimonial (marked fictional), FAQ, CTA band |
-| `services.html` | One section per service (audit, solar, renovation, funding), each with an illustration, benefits and a CTA |
-| `about.html` | Story, values, team |
-| `contact.html` | Accessible form with GDPR consent, contact card, map link |
-| `legal.html` | Legal notice, privacy policy (GDPR), cookies; legal identifiers left as `[to complete]` |
-
-Quality: semantic HTML5, `lang="en"`, skip link, one `h1` per page, alt text on every image, responsive mobile-first CSS with a mobile menu,
-brand palette taken from the logo, WCAG-AA contrast, Open Graph tags, lazy loading. It passes the agent's own `audit_website` tool with
-**0 errors and 0 warnings**.
-
-**Live:** https://youssefkhal.github.io/prg2-website-agent/
-
-> **Transparency.** The site in `demo/site/` is a *reference output*. It was written by hand following exactly the brief, sitemap, skills and
-> file layout the agent uses, because no LLM API key or GPU was available while preparing this repository. The agent pipeline itself
-> is verified end to end in CI with a scripted model (see §10). For the same reason, its illustrations are hand-made SVGs rather than SDXL images.
-> The workflow **"Generate demo site with the agent"** runs the real agent headless on the same input and commits the result to
-> `demo/agent-run/`, published at `/agent-run/`. It needs the `ANTHROPIC_API_KEY` repository secret, plus `COLAB_GPU_URL` / `COLAB_GPU_TOKEN` for real images.
-
----
-
-## 9. Running it
-
-```bash
-# 1) GPU — open colab/gpu_server.ipynb in Colab, Runtime → T4 GPU, run all cells, copy the 2 printed lines
-# 2) Backend + UI (Node ≥ 20)
-cd backend
-npm install
-cp .env.example .env          # set ANTHROPIC_API_KEY (or OPENAI_*), COLAB_GPU_URL, COLAB_GPU_TOKEN
-npm run build && npm start    # → http://localhost:3000
-# Windows: double-click backend/run.bat (install, build, test, start, open browser)
-
-# Optional
-npm run skills:demo           # +1,000 skills to test scaling
-npm test                      # unit tests
-npm run demo -- --brief ../demo/brief-prompt.md --images ../demo/inputs --out ../demo/agent-run   # headless run
-```
-
----
-
-## 10. Testing and CI
-
-[![CI](https://github.com/Youssefkhal/prg2-website-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Youssefkhal/prg2-website-agent/actions/workflows/ci.yml)
-
-| Check | What it proves | Status |
-|---|---|---|
-| **End-to-end agent test** (`test/agent-e2e.test.js`) | The real `createDeepAgent` graph runs with the middleware, sub-agents, filesystem backend and streaming. A scripted chat model replaces the LLM, so no API key is needed. Checked: the image upload is saved; the system prompt contains suggested skills but **not** the catalogue; `generate_image` is **not bound before** `load_skill` and **is bound after**; `generate_image` and `write_file` write real files; `task` → **qa-reviewer** sub-agent → `audit_website` reports 0 errors | ✅ CI |
-| Unit tests | frontmatter parsing, retrieval relevance, runtime skill registration, conversation scan, palette contrast ≥ 4.5:1, audit detection | ✅ CI |
-| Build | `npm install` + strict TypeScript build against the real `deepagents`, `langchain`, `@langchain/*` and NestJS packages | ✅ CI |
-| Server smoke test | NestJS boots with 1,012 skills; `/api/health`, `/api/skills`, `/api/tools` and the UI respond | ✅ CI |
-| Colab server | `gpu_server.py` compiles, notebook is valid JSON | ✅ CI |
-| Demo site audit | `audit_website` on `demo/site`: 5 pages, 0 errors, 0 warnings | ✅ |
-| Run with a real LLM + Colab GPU | `generate-demo.yml` (needs the `ANTHROPIC_API_KEY` secret and the Colab URL/token) | ⏳ needs your keys |
-
-## 11. Limitations and next steps
-
-- **Memory.** Conversation state uses LangGraph `MemorySaver` (in memory). A restart loses chat history but keeps the project files. Next step: a SQLite or Postgres checkpointer.
-- **Image model licence.** SDXL-Turbo is licensed for non-commercial use. For production, set `IMAGE_MODEL_ID` to a commercially licensed model that fits a T4.
-- **Colab sessions are ephemeral.** The tunnel URL changes on every restart and must be copied into `.env`.
-- **Static sites only.** The agent builds static HTML/CSS/JS. Forms are demo-only (mailto or form-service placeholder).
-- **Generated legal pages are templates** and must be validated by a lawyer.
-- **Next ideas:** a vision check of generated images (the model reviewing its own outputs), a ZIP export, one-click deployment of generated sites, human approval before publishing.
-
----
-
-## 12. Repository map
+The agent produces a complete static corporate website:
 
 ```
-.
-├── RESPONSE.md                     ← this document
-├── README.md                       ← quick start
-├── multi_agent_multimodal_…md      ← the assignment
-├── .github/workflows/              ← ci.yml · pages.yml · generate-demo.yml
-├── backend/                        ← NestJS + deepagents
-│   ├── src/agent/                  ← agent.service, dynamic-context.middleware, prompts, conversation-scan
-│   ├── src/skills/                 ← SkillRegistry (index, hot reload, register)
-│   ├── src/tools/                  ← ToolRegistry, built-in tools, HTTP manifests, web utils
-│   ├── src/retrieval/bm25.ts       ← lexical index
-│   ├── src/gpu/colab-client.ts     ← Colab T4 client
-│   ├── src/api/api.controller.ts   ← REST + SSE
-│   ├── src/cli/demo.ts             ← headless run
-│   ├── public/                     ← web interface
-│   ├── skills/core/                ← 12 skills (+ scripts/generate-demo-skills.mjs for 1,000)
-│   ├── tools/                      ← runtime tool manifests
-│   ├── test/                       ← unit tests
-│   └── run.bat                     ← Windows one-click launcher
-├── colab/                          ← gpu_server.ipynb / gpu_server.py (FastAPI, T4)
-└── demo/                           ← Verdance: input, brief, site (Pages), agent-run (workflow output)
+/brief.md
+  → /content/*.md            copy for every page
+  → /site/assets/images/*    images generated on the Colab T4
+  → /site/*.html + css + js  the website
 ```
+
+- The **copywriter** produces the page text, meta descriptions and alt texts.
+- The **image-designer** writes English SDXL prompts, generates the hero and section images with `generate_image`, and records filename, placement and alt text in `/content/images.md`.
+- The **web-developer** builds the semantic, responsive static site from the brief, copy and images.
+
+The repository includes the five-page **Verdance** corporate website in [`demo/site/`](demo/site/), published at https://youssefkhal.github.io/prg2-website-agent/: home, services, about, contact and legal pages, with hero and service images and consistent brand colours.
+
+The live generation pipeline needs an LLM API key and the Colab T4 server; without the GPU, `generate_image` falls back to labelled SVG placeholders, so the site can still be built.
+
+---
+
+In short, each requirement maps to a concrete part of the repository: the deepagents graph and sub-agents, the NestJS backend, the FastAPI GPU server, the web interface, skill/tool/sub-agent invocation, the dynamic-context middleware, multimodal image input, and the website-generation pipeline with the Verdance reference output.

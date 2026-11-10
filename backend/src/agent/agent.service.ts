@@ -10,13 +10,22 @@ import { currentContext, projectDirFor, runContext, sanitizeThreadId } from "../
 import { generateImageTool } from "../tools/tool-registry";
 import { slugify } from "../tools/web-utils";
 import { createDynamicContextMiddleware } from "./dynamic-context.middleware";
-import { createChatModel } from "./model-factory";
+import { createChatModel, createChatModelFromSettings, type RuntimeModelSettings } from "./model-factory";
 import { COPYWRITER_PROMPT, IMAGE_DESIGNER_PROMPT, MAIN_SYSTEM_PROMPT, QA_PROMPT, WEB_DEVELOPER_PROMPT } from "./prompts";
 
 export interface ImageInput {
   name: string;
   /** data:image/png;base64,... */
   dataUrl: string;
+}
+
+export interface ModelInfo {
+  configured: boolean;
+  source: "ui" | "override" | "env";
+  provider: string | null;
+  model: string;
+  baseUrl: string | null;
+  label: string;
 }
 
 export type AgentEvent =
@@ -38,12 +47,54 @@ export class AgentService {
   private readonly checkpointer = new MemorySaver();
   private agent: any;
   private readonly busy = new Set<string>();
-  /** Optional model instance (tests inject a scripted model; normally the MODEL string from .env is used). */
+  /** Optional model instance (tests inject a scripted model). */
   private modelOverride?: unknown;
+  /** Model configured from the web interface; the API key lives in this process only. */
+  private runtimeModel?: unknown;
+  private runtimeSettings?: Omit<RuntimeModelSettings, "apiKey">;
 
   setModel(model: unknown): void {
     this.modelOverride = model;
     this.agent = undefined;
+  }
+
+  /** Apply provider/model/key submitted by the user in the web interface. Does not log or persist the key. */
+  configureModel(settings: RuntimeModelSettings): ModelInfo {
+    const model = createChatModelFromSettings(settings);
+    this.runtimeModel = model;
+    this.runtimeSettings = {
+      provider: settings.provider,
+      model: settings.model.trim(),
+      baseUrl: settings.baseUrl?.trim() || undefined,
+    };
+    this.agent = undefined;
+    this.log.log(`runtime model configured: ${settings.provider}:${settings.model.trim()}`);
+    return this.modelInfo();
+  }
+
+  /** Forget the UI-supplied model; the next chat falls back to the .env configuration. */
+  clearModel(): ModelInfo {
+    this.runtimeModel = undefined;
+    this.runtimeSettings = undefined;
+    this.agent = undefined;
+    this.log.log("runtime model cleared");
+    return this.modelInfo();
+  }
+
+  /** Public status; never includes the API key. */
+  modelInfo(): ModelInfo {
+    const envKey = !!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.GOOGLE_API_KEY);
+    const configured = !!(this.runtimeModel || this.modelOverride || envKey);
+    const provider = this.runtimeSettings?.provider ?? (this.modelOverride ? "override" : null);
+    const model = this.runtimeSettings?.model ?? config.model;
+    return {
+      configured,
+      source: this.runtimeModel ? "ui" : this.modelOverride ? "override" : "env",
+      provider,
+      model,
+      baseUrl: this.runtimeSettings?.baseUrl ?? null,
+      label: configured && provider ? `${provider}:${model}` : config.model,
+    };
   }
 
   constructor(@Inject(RegistryService) private readonly registry: RegistryService) {}
@@ -53,14 +104,15 @@ export class AgentService {
     if (this.agent) return this.agent;
     const { skills, tools } = this.registry;
     const dynamic = createDynamicContextMiddleware(skills, tools, { autoSuggest: config.autoSuggestSkills, modelRpm: config.modelRpm });
-    const subModel = this.modelOverride ?? createChatModel(config.subagentModel);
+    const primary = this.modelOverride ?? this.runtimeModel ?? createChatModel(config.model);
+    const subModel = this.modelOverride ?? this.runtimeModel ?? createChatModel(config.subagentModel);
     // Fallback models (e.g. other Gemini Flash versions when one is overloaded), outermost so they wrap the whole call.
-    const fallbacks = this.modelOverride ? [] : config.modelFallbacks.map((m) => createChatModel(m));
+    const fallbacks = this.modelOverride || this.runtimeModel ? [] : config.modelFallbacks.map((m) => createChatModel(m));
     const mw: any[] = fallbacks.length ? [modelFallbackMiddleware(...fallbacks), dynamic] : [dynamic];
 
     this.agent = createDeepAgent({
       name: "atelier",
-      model: (this.modelOverride as any) ?? createChatModel(config.model),
+      model: primary as any,
       systemPrompt: MAIN_SYSTEM_PROMPT,
       tools: [],
       middleware: mw,
@@ -103,7 +155,7 @@ export class AgentService {
         },
       ],
     } as any);
-    this.log.log(`deep agent ready (model ${config.model})`);
+    this.log.log(`deep agent ready (model ${this.modelInfo().label})`);
     return this.agent;
   }
 

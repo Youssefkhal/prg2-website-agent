@@ -9,6 +9,7 @@ const { SkillRegistry, parseFrontmatter } = require("../dist/skills/skill-regist
 const { scanConversation } = require("../dist/agent/conversation-scan");
 const { buildPalette, auditSite, contrastRatio } = require("../dist/tools/web-utils");
 const { toGeminiSchema } = require("../dist/agent/gemini-schema");
+const { createChatModelFromSettings } = require("../dist/agent/model-factory");
 
 const skillsDir = path.join(__dirname, "..", "skills");
 
@@ -47,6 +48,15 @@ test("conversation scan finds loaded skills and enabled tools", () => {
   assert.deepEqual(s.loadedSkills, ["seo-on-page"]);
   assert.deepEqual(s.enabledTools, ["wikipedia_summary"]);
   assert.equal(s.lastUserText, "build my site");
+});
+
+test("runtime model settings instantiate every provider and reject a missing key", () => {
+  for (const provider of ["anthropic", "openai", "google-genai"]) {
+    const model = createChatModelFromSettings({ provider, model: "test-model", apiKey: "test-key" });
+    assert.ok(model, provider);
+  }
+  assert.throws(() => createChatModelFromSettings({ provider: "anthropic", model: "x", apiKey: "" }), /API key/);
+  assert.throws(() => createChatModelFromSettings({ provider: "nope", model: "x", apiKey: "k" }), /provider/);
 });
 
 test("palette is accessible", () => {

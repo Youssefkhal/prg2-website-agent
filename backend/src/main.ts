@@ -18,6 +18,19 @@ async function bootstrap() {
   fs.mkdirSync(config.workspaceDir, { recursive: true });
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
   app.useBodyParser("json", { limit: "40mb" }); // images arrive as base64 data URLs
+  // The UI can be served by Nest (same origin) or from GitHub Pages (different origin).
+  const extraOrigins = (process.env.CORS_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  app.enableCors({
+    origin: (origin, cb) => {
+      const ok =
+        !origin ||
+        /^https:\/\/youssefkhal\.github\.io$/i.test(origin) ||
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin) ||
+        extraOrigins.includes(origin);
+      cb(null, ok);
+    },
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+  });
   app.useStaticAssets(config.publicDir); // web interface
   app.useStaticAssets(config.workspaceDir, { prefix: "/projects/" }); // live preview of generated sites
   app.enableShutdownHooks();

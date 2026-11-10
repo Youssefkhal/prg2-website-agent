@@ -14,6 +14,7 @@
       <span id="gpu-pill" class="pill">GPU…</span>
       <span id="model-pill" class="pill muted">model…</span>
       <span id="skills-pill" class="pill muted">skills…</span>
+      <button id="settings-btn" class="ghost" title="Paste your model API key">⚙ Model</button>
       <select id="project-select" title="Projects"></select>
       <button id="new-project" class="ghost">+ New project</button>
     </div>
@@ -21,6 +22,10 @@
 
   <main class="layout">
     <section class="chat">
+      <div id="setup-banner" class="setup-banner" hidden>
+        <b>Set your model to start.</b>
+        <span>Paste an API key in <button type="button" id="setup-open" class="link">Model settings</button>. The key is kept in the backend process only. On GitHub Pages, also set the backend URL there.</span>
+      </div>
       <div id="messages" class="messages">
         <div class="welcome">
           <h2>Describe the company, attach a logo and photos.</h2>
@@ -98,5 +103,53 @@
       </div>
     </section>
   </main>
+
+  <dialog id="settings-dialog" class="settings-dialog">
+    <form id="settings-form" novalidate>
+      <h2>Model settings</h2>
+      <p class="hint">
+        Paste the API key for the model you want to use. It is sent to the Atelier backend and kept in memory for this
+        backend session; it is not written to disk. When the UI is hosted on GitHub Pages, the NestJS backend must be
+        running separately, so set its URL below.
+      </p>
+
+      <label>
+        Backend URL
+        <input id="backend-url" type="url" placeholder="http://localhost:3000" spellcheck="false">
+      </label>
+
+      <label>
+        Provider
+        <select id="provider">
+          <option value="anthropic">Anthropic</option>
+          <option value="openai">OpenAI / OpenAI-compatible</option>
+          <option value="google-genai">Google Gemini</option>
+        </select>
+      </label>
+
+      <label>
+        Model
+        <input id="model-name" type="text" placeholder="claude-sonnet-4-6" spellcheck="false">
+      </label>
+
+      <label id="base-url-row" hidden>
+        Base URL (optional, OpenAI-compatible)
+        <input id="model-base-url" type="url" placeholder="https://openrouter.ai/api/v1" spellcheck="false">
+      </label>
+
+      <label>
+        API key
+        <input id="api-key" type="password" autocomplete="off" placeholder="Paste your API key" spellcheck="false">
+      </label>
+
+      <p id="settings-status" class="settings-status" role="status" aria-live="polite"></p>
+
+      <div class="dialog-actions">
+        <button type="button" id="settings-clear" class="ghost">Clear key</button>
+        <button type="button" id="settings-close" class="ghost">Close</button>
+        <button type="submit">Save &amp; use</button>
+      </div>
+    </form>
+  </dialog>
 </body>
 </html>
